@@ -1,10 +1,10 @@
 use hyper::Method;
 use handler::Handler;
-use route_recognizer::Router as Recoginzer;
+use route_recognizer::Router as Recognizer;
 use std::collections::HashMap;
 
 pub struct Router {
-    routes: HashMap<Method, Recoginzer<Route>>,
+    routes: HashMap<Method, Recognizer<Route>>,
 }
 
 impl Router {
@@ -12,14 +12,19 @@ impl Router {
         Router { routes: HashMap::new() }
     }
 
-    pub fn get<P: AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        let mut r = Recoginzer::new();
-        r.add(path.as_ref(),h);
+    pub fn add<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, method: Method, path: P, h: H) {
+        let path = path.into();
+        let route = Route {
+            path: path.clone(),
+            callback: Box::new(h),
+            method: method.clone()
+        };
 
-        Route{
+        self.routes.entry(method.clone()).or_insert(Recognizer::new()).add(path.as_ref(), route);
+    }
 
-        }
-        self.routes.insert(Method::Get,r);
+    pub fn get<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
+        self.add(Method::Get, path, h)
     }
 
     pub fn resolve<S: AsRef<str>, T: Handler>(&self, method: Method, path: S) -> Option<Box<T>> {
@@ -31,6 +36,12 @@ pub struct Route {
     path: String,
     method: Method,
     callback: Box<Handler>
+}
+
+impl Route {
+    pub fn get_path(&self) -> &str {
+        self.path.as_str()
+    }
 }
 
 
