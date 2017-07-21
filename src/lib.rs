@@ -6,7 +6,9 @@ extern crate url;
 extern crate route_recognizer;
 extern crate serde;
 extern crate serde_json;
+extern crate futures;
 
+pub mod server;
 pub mod router;
 pub mod request;
 pub mod response;
