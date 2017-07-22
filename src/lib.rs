@@ -16,6 +16,14 @@ pub mod handler;
 pub mod error;
 pub mod prelude;
 
+pub trait TResponse {
+    fn get_status(&self) -> u16;
+    fn get_msg(&self) -> &str;
+    fn get_headers(&self) -> &::hyper::Headers;
+}
+
+
+
 
 
 #[cfg(test)]

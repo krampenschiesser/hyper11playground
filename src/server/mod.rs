@@ -20,6 +20,8 @@ impl Service for Server {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_start_server() {
         use hyper::server::Http;
