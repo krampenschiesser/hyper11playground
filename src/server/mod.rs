@@ -27,6 +27,6 @@ mod tests {
         use hyper::server::Http;
         let addr = "127.0.0.1:3000".parse().unwrap();
         let server = Http::new().bind(&addr, || Ok(Server{})).unwrap();
-        server.run().unwrap();
+//        server.run().unwrap();
     }
 }

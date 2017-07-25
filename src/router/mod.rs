@@ -1,7 +1,10 @@
 use hyper::Method;
 use handler::Handler;
 use route_recognizer::Router as Recognizer;
+use route_recognizer::Params;
 use std::collections::HashMap;
+use std::cell::{RefMut,RefCell};
+use std::ops::DerefMut;
 
 pub struct Router {
     routes: HashMap<Method, Recognizer<Route>>,
@@ -16,7 +19,7 @@ impl Router {
         let path = path.into();
         let route = Route {
             path: path.clone(),
-            callback: Box::new(h),
+            callback: RefCell::new(Box::new(h)),
             method: method.clone()
         };
 
@@ -27,20 +30,37 @@ impl Router {
         self.add(Method::Get, path, h)
     }
 
-    pub fn resolve<S: AsRef<str>, T: Handler>(&self, method: Method, path: S) -> Option<Box<T>> {
-        None
+    pub fn resolve<S: AsRef<str>>(&self, method: &Method, path: S) -> Option<(&Route, Params)> {
+        if let Some(found) = self.routes.get(method) {
+            match found.recognize(path.as_ref()) {
+                Ok(matching) => {
+                    Some((matching.handler, matching.params))
+                }
+                Err(msg) => {
+                    warn!("Found no handler for {} {}", method, path.as_ref());
+                    None
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 
 pub struct Route {
-    path: String,
-    method: Method,
-    callback: Box<Handler>
+    pub path: String,
+    pub method: Method,
+    pub callback: RefCell<Box<Handler>>
 }
 
 impl Route {
     pub fn get_path(&self) -> &str {
         self.path.as_str()
+    }
+
+    pub fn get_callback(&self) -> RefMut<Box<Handler>> {
+        let mut b: RefMut<Box<Handler>> = self.callback.borrow_mut();
+        b
     }
 }
 
@@ -54,7 +74,7 @@ mod tests {
     use std::boxed::Box;
 
     fn handle(req: &mut Request) -> Result<Response, HttpError> {
-        return Ok(Response {});
+        return Ok("bla".into());
     }
 
     struct HandlerStruct {
@@ -71,7 +91,7 @@ mod tests {
         fn handle(&mut self, req: &mut Request) -> Result<Response, HttpError> {
             let mut r = self.called.lock().unwrap();
             *r = true;
-            Ok(Response {})
+            Ok("".into())
         }
     }
 
@@ -95,13 +115,12 @@ mod tests {
 
         router.get("/hello", handler);
 
-        let r: Option<Box<HandlerStruct>> = router.resolve(Get, "/helloNone");
+        let r = router.resolve(&Get, "/helloNone");
         assert!(r.is_none());
 
-        let mut handler: Box<HandlerStruct> = router.resolve(Get, "/helloNone").unwrap();
+        let (route, params) = router.resolve(&Get, "/hello").unwrap();
+        let mut handler: RefMut<Box<Handler>> = route.get_callback();
         let mut r = Request::new();
-        handler.handle(r.as_mut());
-
-        assert!(handler.get());
+        (**handler).handle(r.as_mut());
     }
 }

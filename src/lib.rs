@@ -7,6 +7,8 @@ extern crate route_recognizer;
 extern crate serde;
 extern crate serde_json;
 extern crate futures;
+#[macro_use]
+extern crate log;
 
 pub mod server;
 pub mod router;
@@ -15,16 +17,6 @@ pub mod response;
 pub mod handler;
 pub mod error;
 pub mod prelude;
-
-pub trait TResponse {
-    fn get_status(&self) -> u16;
-    fn get_msg(&self) -> &str;
-    fn get_headers(&self) -> &::hyper::Headers;
-}
-
-
-
-
 
 #[cfg(test)]
 mod tests {
