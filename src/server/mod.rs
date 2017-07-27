@@ -24,7 +24,7 @@ impl Server {
     }
 
     pub fn start(&mut self) {
-        self.protocol.run();
+        self.protocol.run(&self.addr,&self);
     }
 }
 
@@ -50,9 +50,19 @@ impl Service for Server {
 }
 
 impl Protocol {
-    fn run(&self) {}
+    fn run(&self, addr: &SocketAddr, server: &Server) {
+        match *self {
+            Protocol::Http1 => self.run_http(addr,server),
+            Protocol::Https1() => unimplemented!(),
+        }
+    }
 
-    fn run_http() {}
+    fn run_http(&self,addr: &SocketAddr, server: &Server) -> Result<::hyper::Server<Server,::hyper::Body>,::hyper::Error> {//fixme return server, but what type does it have???
+        let server = Http::new().bind(&addr, || Ok(Server::default()))?;
+
+        Ok(server)
+    }
+
     fn run_https() {}
 }
 
