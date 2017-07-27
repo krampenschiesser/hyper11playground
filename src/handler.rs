@@ -15,9 +15,3 @@ impl<F> Handler for F
         (*self)(req)
     }
 }
-
-
-pub trait Handler2: Send + Sync + 'static
-{
-    fn handle(&mut self, req: &mut Request) -> Result<Response, HttpError>;
-}

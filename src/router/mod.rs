@@ -3,7 +3,7 @@ use handler::Handler;
 use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
 use std::collections::HashMap;
-use std::cell::{RefMut,RefCell};
+use std::cell::{RefMut, RefCell};
 use std::ops::DerefMut;
 
 pub struct Router {
@@ -122,5 +122,25 @@ mod tests {
         let mut handler: RefMut<Box<Handler>> = route.get_callback();
         let mut r = Request::new();
         (**handler).handle(r.as_mut());
+    }
+
+    #[test]
+    fn parse_parameter() {
+        let mut router = Router::new();
+
+        router.get("/hello/wild/*card", HandlerStruct::default());
+        router.get("/hello/:param1", HandlerStruct::default());
+        router.get("/hello/:param1/bla/:param2", HandlerStruct::default());
+
+        assert!(router.resolve(&Get, "/hello").is_none());
+        has_param(router.resolve(&Get, "/hello/val1").unwrap().1, "param1", "val1");
+        has_param(router.resolve(&Get, "/hello/val1/bla/val2").unwrap().1, "param1", "val1");
+        has_param(router.resolve(&Get, "/hello/val1/bla/val2").unwrap().1, "param2", "val2");
+        has_param(router.resolve(&Get, "/hello/wild/schrott/more").unwrap().1, "card", "schrott/more");
+    }
+
+    fn has_param(p: Params, name: &str, expected: &str) {
+        let val = p.find(name).unwrap();
+        assert_eq!(expected, val);
     }
 }
