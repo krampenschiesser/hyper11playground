@@ -7,12 +7,12 @@ fn hello_world(req: &mut Request) -> Result<Response, HttpError> {
 }
 
 fn main() {
-    let mut r = Router::new();
+    let addr = "127.0.0.1:8091".parse().unwrap();
 
+    let mut r = Router::new();
     r.get("/hello/:world", hello_world);
 
-    let mut s = Server::http("127.0.0.1:8091".parse().unwrap());
+    let mut s = Server::http(addr); 
     s.router(r);
-
     s.start();
 }

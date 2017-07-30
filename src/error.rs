@@ -11,3 +11,14 @@ pub struct HttpError {
     msg: String,
     headers: Headers,
 }
+
+impl HttpError {
+    pub fn not_found<S: Into<String>>(resource: Option<S>) -> Self {
+        let msg: String = resource.map(|x| x.into()).unwrap_or("".into());
+        HttpError {
+            status: 404,
+            msg: msg,
+            headers: Headers::new()
+        }
+    }
+}

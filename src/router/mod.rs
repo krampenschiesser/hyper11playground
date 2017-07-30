@@ -3,7 +3,7 @@ use handler::Handler;
 use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
 use std::collections::HashMap;
-use std::cell::{RefMut, RefCell};
+use std::cell::{RefMut,RefCell};
 use std::ops::DerefMut;
 
 pub struct Router {

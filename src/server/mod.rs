@@ -1,6 +1,6 @@
 use hyper::header::ContentLength;
-use hyper::server::{Http, Request, Response, Service};
-use router::Router;
+use hyper::server::{Http, Request as HRequest, Response as HResponse, Service};
+use router::{Router,Route};
 use std::net::SocketAddr;
 
 pub struct Server {
@@ -35,14 +35,32 @@ impl Default for Server {
 }
 
 impl Service for Server {
-    type Request = Request;
-    type Response = Response;
+    type Request = HRequest;
+    type Response = HResponse;
     type Error = ::hyper::Error;
     type Future = ::futures::future::FutureResult<Self::Response, Self::Error>;
 
-    fn call(&self, _req: Request) -> Self::Future {
+    fn call(&self, req: HRequest) -> Self::Future {
+        use route_recognizer::Params;
+
+        let ref handler: Option<(&Route, ::route_recognizer::Params)>  = match self.router {
+            Some(ref router) => router.resolve(req.method(),req.path()),
+            None => None,
+        };
+
+        match handler {
+            Some((route,params)) => "".as_ref(),
+            None => "".as_ref()
+        }
+
+        if handler.is_some() {
+            let (route,params): (&Route,Params) = handler.unwrap();
+        }
+
+
         ::futures::future::ok(
-            Response::new()
+
+            HResponse::new()
                 .with_header(ContentLength("hello".len() as u64))
                 .with_body("hello")
         )
@@ -50,17 +68,16 @@ impl Service for Server {
 }
 
 impl Protocol {
-    fn run(&self, addr: &SocketAddr, server: &Server) {
+    fn run(&self, addr: &SocketAddr, server: &Server)  -> Result<(),::hyper::Error> {
         match *self {
             Protocol::Http1 => self.run_http(addr,server),
             Protocol::Https1() => unimplemented!(),
         }
     }
 
-    fn run_http(&self,addr: &SocketAddr, server: &Server) -> Result<::hyper::Server<Server,::hyper::Body>,::hyper::Error> {//fixme return server, but what type does it have???
+    fn run_http(&self,addr: &SocketAddr, server: &Server) -> Result<(),::hyper::Error> {//fixme return server, but what type does it have???
         let server = Http::new().bind(&addr, || Ok(Server::default()))?;
-
-        Ok(server)
+        server.run()
     }
 
     fn run_https() {}
