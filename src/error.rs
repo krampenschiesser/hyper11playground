@@ -1,4 +1,4 @@
-use hyper::Headers;
+use hyper::{Headers,StatusCode};
 //
 //pub trait HttpError: Sized {
 //    fn get_status(&self) -> u16;
@@ -7,7 +7,7 @@ use hyper::Headers;
 //}
 
 pub struct HttpError {
-    status: u16,
+    status: StatusCode,
     msg: String,
     headers: Headers,
 }
@@ -16,9 +16,17 @@ impl HttpError {
     pub fn not_found<S: Into<String>>(resource: Option<S>) -> Self {
         let msg: String = resource.map(|x| x.into()).unwrap_or("".into());
         HttpError {
-            status: 404,
+            status: StatusCode::NotFound,
             msg: msg,
             headers: Headers::new()
         }
+    }
+}
+
+impl From<HttpError> for ::hyper::Response {
+    fn from(err: HttpError) -> ::hyper::Response {
+        use hyper::{Response,Body};
+
+        Response::new().with_status(err.status).with_body(Body::from(err.msg)).with_headers(err.headers)
     }
 }

@@ -3,7 +3,7 @@ use handler::Handler;
 use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
 use std::collections::HashMap;
-use std::cell::{RefMut,RefCell};
+use std::cell::{RefMut, RefCell};
 use std::ops::DerefMut;
 
 pub struct Router {
@@ -19,7 +19,7 @@ impl Router {
         let path = path.into();
         let route = Route {
             path: path.clone(),
-            callback: RefCell::new(Box::new(h)),
+            callback: Box::new(h),
             method: method.clone()
         };
 
@@ -50,7 +50,7 @@ impl Router {
 pub struct Route {
     pub path: String,
     pub method: Method,
-    pub callback: RefCell<Box<Handler>>
+    pub callback: Box<Handler>
 }
 
 impl Route {
@@ -58,9 +58,8 @@ impl Route {
         self.path.as_str()
     }
 
-    pub fn get_callback(&self) -> RefMut<Box<Handler>> {
-        let mut b: RefMut<Box<Handler>> = self.callback.borrow_mut();
-        b
+    pub fn get_callback(&self) -> &Box<Handler> {
+        &self.callback
     }
 }
 
@@ -88,7 +87,7 @@ mod tests {
     }
 
     impl ::handler::Handler for HandlerStruct {
-        fn handle(&mut self, req: &mut Request) -> Result<Response, HttpError> {
+        fn handle(&self, req: &mut Request) -> Result<Response, HttpError> {
             let mut r = self.called.lock().unwrap();
             *r = true;
             Ok("".into())
@@ -119,9 +118,9 @@ mod tests {
         assert!(r.is_none());
 
         let (route, params) = router.resolve(&Get, "/hello").unwrap();
-        let mut handler: RefMut<Box<Handler>> = route.get_callback();
-        let mut r = Request::new();
-        (**handler).handle(r.as_mut());
+        let ref handler = route.get_callback();
+        let mut r = Request::default();
+        (*handler).handle(r.as_mut());
     }
 
     #[test]

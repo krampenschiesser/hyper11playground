@@ -9,6 +9,8 @@ extern crate serde_json;
 extern crate futures;
 #[macro_use]
 extern crate log;
+//#[cfg(test)]
+extern crate env_logger;
 
 pub mod server;
 pub mod router;

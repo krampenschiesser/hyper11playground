@@ -1,7 +1,10 @@
 use hyper::header::ContentLength;
+use hyper::StatusCode;
 use hyper::server::{Http, Request as HRequest, Response as HResponse, Service};
-use router::{Router,Route};
+use router::{Router, Route};
 use std::net::SocketAddr;
+use request::Request;
+use futures::future;
 
 pub struct Server {
     addr: SocketAddr,
@@ -23,8 +26,8 @@ impl Server {
         Server { addr: addr, router: None, protocol: Protocol::Http1 }
     }
 
-    pub fn start(&mut self) {
-        self.protocol.run(&self.addr,&self);
+    pub fn start(self) {
+        self.protocol.run(self);
     }
 }
 
@@ -42,42 +45,53 @@ impl Service for Server {
 
     fn call(&self, req: HRequest) -> Self::Future {
         use route_recognizer::Params;
-
-        let ref handler: Option<(&Route, ::route_recognizer::Params)>  = match self.router {
-            Some(ref router) => router.resolve(req.method(),req.path()),
-            None => None,
-        };
-
-        match handler {
-            Some((route,params)) => "".as_ref(),
-            None => "".as_ref()
-        }
-
-        if handler.is_some() {
-            let (route,params): (&Route,Params) = handler.unwrap();
-        }
+        future::ok({
+            debug!("Got request {:?}",req);
+            let handler: Option<(&Route, ::route_recognizer::Params)> = match self.router {
+                Some(ref router) => router.resolve(req.method(), req.path()),
+                None => None,
+            };
 
 
-        ::futures::future::ok(
+            match handler {
+                Some(tuple) => {
+                    let mut request = Request::new(req, tuple.1);
+                    let ref route = tuple.0;
+                    debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
+                    let r = route.callback;
+                    let result = r.handle(&mut request);
+                    match result {
+                        Ok(response) => HResponse::from(response),
+                        Err(e) => HResponse::from(e)
+                    }
 
-            HResponse::new()
-                .with_header(ContentLength("hello".len() as u64))
-                .with_body("hello")
-        )
+                }
+                None => {
+                    debug!("Found no route for {}:{}", req.method(), req.path());
+
+                    HResponse::new()
+                        .with_status(StatusCode::NotFound)
+                        .with_body(format!("404, No resource found for {}", req.path()))
+                }
+            }
+        })
     }
 }
 
 impl Protocol {
-    fn run(&self, addr: &SocketAddr, server: &Server)  -> Result<(),::hyper::Error> {
+    fn run(&self, server: Server) -> Result<(), ::hyper::Error> {
         match *self {
-            Protocol::Http1 => self.run_http(addr,server),
+            Protocol::Http1 => self.run_http(server),
             Protocol::Https1() => unimplemented!(),
         }
     }
 
-    fn run_http(&self,addr: &SocketAddr, server: &Server) -> Result<(),::hyper::Error> {//fixme return server, but what type does it have???
-        let server = Http::new().bind(&addr, || Ok(Server::default()))?;
-        server.run()
+    fn run_http(&self, server: Server) -> Result<(), ::hyper::Error> {
+        //fixme return server, but what type does it have???
+//        let addr = {server.addr.clone()};
+//        let s = Http::new().bind(&addr, || Ok(server))?;
+//        s.run();
+        Ok(())
     }
 
     fn run_https() {}
