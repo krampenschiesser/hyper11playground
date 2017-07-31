@@ -12,6 +12,7 @@ pub struct Server {
     protocol: Protocol,
 }
 
+#[derive(Copy,Clone)]
 enum Protocol {
     Http1,
     Https1()
@@ -26,8 +27,8 @@ impl Server {
         Server { addr: addr, router: None, protocol: Protocol::Http1 }
     }
 
-    pub fn start(self) {
-        self.protocol.run(self);
+    pub fn start(&self) {
+        self.protocol.run(&self);
     }
 }
 
@@ -58,7 +59,7 @@ impl Service for Server {
                     let mut request = Request::new(req, tuple.1);
                     let ref route = tuple.0;
                     debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
-                    let r = route.callback;
+                    let ref r = route.callback;
                     let result = r.handle(&mut request);
                     match result {
                         Ok(response) => HResponse::from(response),
@@ -79,18 +80,20 @@ impl Service for Server {
 }
 
 impl Protocol {
-    fn run(&self, server: Server) -> Result<(), ::hyper::Error> {
+    fn run(&self, server: &Server) -> Result<(), ::hyper::Error> {
         match *self {
             Protocol::Http1 => self.run_http(server),
             Protocol::Https1() => unimplemented!(),
         }
     }
 
-    fn run_http(&self, server: Server) -> Result<(), ::hyper::Error> {
+    fn run_http(&self, server: &Server) -> Result<(), ::hyper::Error> {
         //fixme return server, but what type does it have???
-//        let addr = {server.addr.clone()};
-//        let s = Http::new().bind(&addr, || Ok(server))?;
-//        s.run();
+        use std::sync::Arc;
+        let ref addr = server.addr;
+        let val = Arc::new(server);
+        let s = Http::new().bind(addr,  move || Ok(val.clone()))?;
+        s.run();
         Ok(())
     }
 
@@ -105,7 +108,7 @@ mod tests {
     fn test_start_server() {
         use hyper::server::Http;
         let addr = "127.0.0.1:3000".parse().unwrap();
-        let server = Http::new().bind(&addr, || Ok(Server::default())).unwrap();
+        let server = Http::new().bind(&addr,  move || Ok(Server::default())).unwrap();
         //        server.run().unwrap();
     }
 }
