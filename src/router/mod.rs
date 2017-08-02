@@ -142,4 +142,11 @@ mod tests {
         let val = p.find(name).unwrap();
         assert_eq!(expected, val);
     }
+
+    #[test]
+    fn hello_world_test() {
+        let mut router = Router::new();
+        router.get("/hello/:hello", HandlerStruct::default());
+        has_param(router.resolve(&Get, "/hello/val1").unwrap().1, "hello", "val1");
+    }
 }

@@ -1,22 +1,31 @@
 use route_recognizer::Params;
+use url::{Url, ParseError};
 
 pub struct Request {
     hyper_req: ::hyper::Request,
     params: Params,
+    url: Url,
 }
 
 
 impl Request {
-    pub fn new(hyper_req: ::hyper::Request, params: Params) -> Self {
-        return Request { hyper_req,params };
+    pub fn new(hyper_req: ::hyper::Request, params: Params) -> Result<Self, ParseError> {
+        let url = Url::parse(hyper_req.uri().as_ref())?;
+        Ok(Request { hyper_req, params, url: url })
     }
 
     pub fn param(&self, name: &str) -> Option<&str> {
-        None
+        self.params.find(name)
     }
 
     pub fn params(&self) -> &Params {
         &self.params
+    }
+
+    pub fn query(&self, name: &str) -> Option<&str> {
+        ::url::form_urlencoded::parse(name);
+//       self.url.query_pairs().find(|p| p.0 == name)
+        None
     }
 }
 
@@ -31,8 +40,8 @@ impl Default for Request {
         use hyper::Method;
         use hyper::Uri;
 
-        let req = ::hyper::Request::new(Method::Get,Uri::default());
+        let req = ::hyper::Request::new(Method::Get, Uri::default());
         let para = Params::new();
-        Request::new(req,para)
+        Request::new(req, para).unwrap()
     }
 }

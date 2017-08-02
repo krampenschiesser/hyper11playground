@@ -21,6 +21,15 @@ impl HttpError {
             headers: Headers::new()
         }
     }
+
+    pub fn bad_url<S: Into<String>>(resource: S) -> Self {
+        let msg: String = resource.into();
+        HttpError {
+            status: StatusCode::BadRequest,
+            msg: msg,
+            headers: Headers::new()
+        }
+    }
 }
 
 impl From<HttpError> for ::hyper::Response {
