@@ -1,4 +1,3 @@
-use hyper::header::ContentLength;
 use hyper::StatusCode;
 use hyper::server::{Http, Request as HRequest, Response as HResponse, Service};
 use router::{Router, Route};
@@ -7,7 +6,6 @@ use request::Request;
 use futures::future;
 use std::sync::Arc;
 use route_recognizer::Params;
-use error::HttpError;
 
 #[derive(Clone)]
 pub struct Server {
@@ -20,13 +18,13 @@ struct InternalServer(Server);
 
 #[derive(Copy, Clone)]
 enum Protocol {
-    Http1,
-    Https1()
+    Http_1,
+    Https_1()
 }
 
 impl Server {
     pub fn http(addr: SocketAddr) -> Self {
-        Server { addr: addr, router: None, protocol: Protocol::Http1 }
+        Server { addr: addr, router: None, protocol: Protocol::Http_1 }
     }
 
     pub fn router(&mut self, r: Router) {
@@ -41,7 +39,7 @@ impl Server {
 
 impl Default for Server {
     fn default() -> Self {
-        Server { addr: "127.0.0.1:8080".parse().unwrap(), router: None, protocol: Protocol::Http1 }
+        Server { addr: "127.0.0.1:8080".parse().unwrap(), router: None, protocol: Protocol::Http_1 }
     }
 }
 
@@ -88,16 +86,11 @@ impl Service for InternalServer {
 
 impl InternalServer {
     fn handle_route(&self, req: HRequest, tuple: (&Route, Params)) -> Result<::response::Response, ::error::HttpError> {
-        let mut request = Request::new(req, tuple.1).map_err(|e| InternalServer::to_http_err(e))?;
+        let mut request = Request::new(req, tuple.1);
         let ref route = tuple.0;
         debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
         let ref r = route.callback;
         r.handle(&mut request)
-    }
-
-    fn to_http_err(e: ::url::ParseError) -> HttpError {
-        use std::error::Error;
-        HttpError::bad_url(e.description())
     }
 }
 
@@ -105,8 +98,8 @@ impl InternalServer {
 impl Protocol {
     fn run(self, server: Server) -> Result<(), ::hyper::Error> {
         match self {
-            Protocol::Http1 => Self::run_http(server),
-            Protocol::Https1() => unimplemented!(),
+            Protocol::Http_1 => Self::run_http(server),
+            Protocol::Https_1() => unimplemented!(),
         }
     }
 
@@ -114,7 +107,7 @@ impl Protocol {
         //fixme return server, but what type does it have???
         let addr = server.addr.clone();
         let s = Http::new().bind(&addr, move || Ok(InternalServer(server.clone())))?;
-        s.run();
+        s.run()?;
         Ok(())
     }
 
@@ -124,6 +117,7 @@ impl Protocol {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hyper::header::ContentLength;
 
     struct TestServer;
 

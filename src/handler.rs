@@ -1,7 +1,6 @@
 use request::Request;
 use error::HttpError;
 use response::Response;
-use std::error::Error;
 
 pub trait Handler: Send + Sync + 'static
 {

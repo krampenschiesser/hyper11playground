@@ -3,8 +3,6 @@ use handler::Handler;
 use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
 use std::collections::HashMap;
-use std::cell::{RefMut, RefCell};
-use std::ops::DerefMut;
 
 pub struct Router {
     routes: HashMap<Method, Recognizer<Route>>,
@@ -37,7 +35,7 @@ impl Router {
                     Some((matching.handler, matching.params))
                 }
                 Err(msg) => {
-                    warn!("Found no handler for {} {}", method, path.as_ref());
+                    warn!("Found no handler for {} {}: {}", method, path.as_ref(), msg);
                     None
                 }
             }
