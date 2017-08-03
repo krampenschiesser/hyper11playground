@@ -91,13 +91,13 @@ mod tests {
             Ok("".into())
         }
     }
-
-    impl HandlerStruct {
-        pub fn get(&self) -> bool {
-            let r = self.called.lock();
-            *(r.unwrap())
-        }
-    }
+//
+//    impl HandlerStruct {
+//        pub fn get(&self) -> bool {
+//            let r = self.called.lock();
+//            *(r.unwrap())
+//        }
+//    }
 
     #[test]
     fn compile_handle_call() {
@@ -118,7 +118,7 @@ mod tests {
         let (route, params) = router.resolve(&Get, "/hello").unwrap();
         let ref handler = route.get_callback();
         let mut r = Request::default();
-        (*handler).handle(r.as_mut());
+        (*handler).handle(r.as_mut()).unwrap();
     }
 
     #[test]

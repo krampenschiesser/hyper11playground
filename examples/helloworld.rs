@@ -12,7 +12,6 @@ fn main() {
     let mut r = Router::new();
     r.get("/hello/:world", hello_world);
 
-    let mut s = Server::http(addr); 
-    s.router(r);
-    s.start();
+    let  s = Server::new(addr,r);
+    s.start_http().unwrap();
 }

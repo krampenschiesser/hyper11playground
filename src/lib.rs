@@ -11,6 +11,10 @@ extern crate futures;
 extern crate log;
 //#[cfg(test)]
 extern crate env_logger;
+extern crate native_tls;
+extern crate tokio_tls;
+extern crate tokio_service;
+extern crate tokio_proto;
 
 pub mod server;
 pub mod router;

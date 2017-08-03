@@ -9,7 +9,12 @@ unstable = ["clippy"]
 [dependencies]
 clippy = {version = "*", optional = true}
 hyper = "0.11"
-tokio-tls = "0.1.3"
+
+tokio-tls = {version="0.1", features = ["tokio-proto"]}
+native-tls = "0.1"
+tokio-service = "0.1"
+tokio-proto = "0.1"
+
 futures = "0.1.14"
 route-recognizer = "0.1"
 url = "1.5.1"

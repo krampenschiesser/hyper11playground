@@ -1,4 +1,4 @@
-use hyper::{Headers,StatusCode};
+use hyper::{Headers, StatusCode};
 //
 //pub trait HttpError: Sized {
 //    fn get_status(&self) -> u16;
@@ -6,10 +6,23 @@ use hyper::{Headers,StatusCode};
 //    fn get_headers(&self) -> &Headers;
 //}
 
+#[derive(Debug)]
 pub struct HttpError {
     status: StatusCode,
     msg: String,
     headers: Headers,
+}
+
+impl ::std::fmt::Display for HttpError {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "{}: {}", self.status, self.msg)
+    }
+}
+
+impl ::std::error::Error for HttpError {
+    fn description(&self) -> &str {
+        self.msg.as_str()
+    }
 }
 
 impl HttpError {
@@ -34,7 +47,7 @@ impl HttpError {
 
 impl From<HttpError> for ::hyper::Response {
     fn from(err: HttpError) -> ::hyper::Response {
-        use hyper::{Response,Body};
+        use hyper::{Response, Body};
 
         Response::new().with_status(err.status).with_body(Body::from(err.msg)).with_headers(err.headers)
     }
