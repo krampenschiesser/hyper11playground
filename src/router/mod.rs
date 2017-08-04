@@ -91,13 +91,13 @@ mod tests {
             Ok("".into())
         }
     }
-//
-//    impl HandlerStruct {
-//        pub fn get(&self) -> bool {
-//            let r = self.called.lock();
-//            *(r.unwrap())
-//        }
-//    }
+    //
+    //    impl HandlerStruct {
+    //        pub fn get(&self) -> bool {
+    //            let r = self.called.lock();
+    //            *(r.unwrap())
+    //        }
+    //    }
 
     #[test]
     fn compile_handle_call() {
@@ -115,10 +115,12 @@ mod tests {
         let r = router.resolve(&Get, "/helloNone");
         assert!(r.is_none());
 
-        let (route, params) = router.resolve(&Get, "/hello").unwrap();
+        let (route, _) = router.resolve(&Get, "/hello").unwrap();
         let ref handler = route.get_callback();
-        let mut r = Request::default();
-        (*handler).handle(r.as_mut()).unwrap();
+        let req = ::hyper::Request::new(::hyper::Method::Get, ::hyper::Uri::default());
+        let c = ::state::Container::new();
+        let mut r = Request::new(req, &c, ::route_recognizer::Params::new());
+        (*handler).handle(&mut r).unwrap();
     }
 
     #[test]

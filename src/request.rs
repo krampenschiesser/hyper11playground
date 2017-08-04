@@ -1,17 +1,20 @@
 use route_recognizer::Params;
 use std::collections::HashMap;
 
-pub struct Request {
+use state::Container;
+
+pub struct Request<'r> {
+    state: &'r Container,
     hyper_req: ::hyper::Request,
     params: Params,
     query: HashMap<String, Vec<String>>,
 }
 
 
-impl Request {
-    pub fn new(hyper_req: ::hyper::Request, params: Params) -> Self {
+impl<'r> Request<'r> {
+    pub fn new(hyper_req: ::hyper::Request, state: &'r Container, params: Params) -> Self {
         let query = Request::parse_query(hyper_req.query());
-        Request { hyper_req, params, query: query }
+        Request { hyper_req, params, state, query }
     }
 
     pub fn param(&self, name: &str) -> Option<&str> {
@@ -59,22 +62,9 @@ impl Request {
             HashMap::with_capacity(0)
         }
     }
-}
 
-impl AsMut<Request> for Request {
-    fn as_mut(&mut self) -> &mut Request {
-        self
-    }
-}
-
-impl Default for Request {
-    fn default() -> Self {
-        use hyper::Method;
-        use hyper::Uri;
-
-        let req = ::hyper::Request::new(Method::Get, Uri::default());
-        let para = Params::new();
-        Request::new(req, para)
+    pub fn get_state<T: Send + Sync + 'static>(&self) -> Option<&T> {
+        self.state.try_get()
     }
 }
 
@@ -88,8 +78,9 @@ mod tests {
 
     #[test]
     fn test_query_param() {
+        let c = Container::new();
         let hr = HRequest::new(Method::Get, Uri::from_str("/bla?hallo=welt&hallo=blubb").unwrap());
-        let req = Request::new(hr, Params::new());
+        let req = Request::new(hr, &c, Params::new());
         assert_eq!("welt", req.query_first("hallo").unwrap());
         assert_eq!(None, req.query_first("ne"));
         assert_eq!(2, req.query("hallo").unwrap().len());

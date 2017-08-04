@@ -15,6 +15,7 @@ extern crate native_tls;
 extern crate tokio_tls;
 extern crate tokio_service;
 extern crate tokio_proto;
+extern crate state;
 
 pub mod server;
 pub mod router;

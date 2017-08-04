@@ -5,7 +5,7 @@ use hyper11playground::prelude::*;
 use native_tls::Pkcs12;
 
 
-fn hello_world(req: &mut Request) -> Result<Response, HttpError> {
+fn hello_world(_: &mut Request) -> Result<Response, HttpError> {
     Ok("hello encryption".into())
 }
 

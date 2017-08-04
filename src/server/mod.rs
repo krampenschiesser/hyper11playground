@@ -7,13 +7,16 @@ use futures::future;
 use std::sync::Arc;
 use route_recognizer::Params;
 use native_tls::Pkcs12;
+use state::Container;
 
 pub struct Server {
     addr: SocketAddr,
     router: Arc<Router>,
+    state: Arc<Container>,
 }
 
 struct InternalServer {
+    state: Arc<Container>,
     router: Arc<Router>
 }
 
@@ -25,11 +28,17 @@ enum Protocol {
 
 impl Server {
     pub fn new(addr: SocketAddr, r: Router) -> Self {
-        Server { addr: addr, router: Arc::new(r) }
+        Server { addr: addr, router: Arc::new(r), state: Arc::new(Container::new()) }
     }
 
     pub fn start_http(self) -> Result<(), ::hyper::Error> {
         Protocol::Http.run(self)
+    }
+    pub fn add_state<T: Send + Sync + 'static>(&self, state: T)  {
+        if !self.state.set::<T>(state) {
+            error!("State for this type is already being managed!");
+            panic!("Aborting due to duplicately managed state.");
+        }
     }
 
     pub fn start_https(self, pkcs: Pkcs12) -> Result<(), ::hyper::Error> {
@@ -39,7 +48,7 @@ impl Server {
 
 impl Default for Server {
     fn default() -> Self {
-        Server { addr: "127.0.0.1:8080".parse().unwrap(), router: Arc::new(Router::new()) }
+        Server { addr: "127.0.0.1:8080".parse().unwrap(), router: Arc::new(Router::new()), state: Arc::new(Container::new()) }
     }
 }
 
@@ -79,7 +88,7 @@ impl Service for InternalServer {
 
 impl InternalServer {
     fn handle_route(&self, req: HRequest, tuple: (&Route, Params)) -> Result<::response::Response, ::error::HttpError> {
-        let mut request = Request::new(req, tuple.1);
+        let mut request = Request::new(req, &self.state,tuple.1);
         let ref route = tuple.0;
         debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
         let ref r = route.callback;
@@ -97,9 +106,7 @@ impl Protocol {
     }
 
     fn run_https(pkcs: Pkcs12, server: Server) -> Result<(), ::hyper::Error> {
-        use futures::future::{ok, Future};
         use hyper::server::Http;
-        use hyper::{Request, Response, StatusCode};
         use native_tls::{TlsAcceptor, Pkcs12};
         use tokio_proto::TcpServer;
         use tokio_service::Service;
@@ -113,7 +120,8 @@ impl Protocol {
         let addr = server.addr.clone();
         let srv = TcpServer::new(proto, addr);
         let router = server.router;
-        srv.serve(move || Ok(InternalServer { router: router.clone() }));
+        let state = server.state;
+        srv.serve(move || Ok(InternalServer { router: router.clone(), state: state.clone() }));
         Ok(())
     }
 
@@ -121,7 +129,8 @@ impl Protocol {
         //fixme return server, but what type does it have???
         let addr = server.addr.clone();
         let router = server.router;
-        let s = Http::new().bind(&addr, move || Ok(InternalServer { router: router.clone() }))?;
+        let state = server.state;
+        let s = Http::new().bind(&addr, move || Ok(InternalServer { router: router.clone(), state: state.clone() }))?;
         s.run()?;
         Ok(())
     }
