@@ -1,7 +1,11 @@
-use route_recognizer::Params;
+mod params;
+
 use std::collections::HashMap;
 
 use state::Container;
+use std::collections::BTreeMap;
+
+pub use self::params::Params;
 
 pub struct Request<'r> {
     state: &'r Container,
@@ -18,7 +22,7 @@ impl<'r> Request<'r> {
     }
 
     pub fn param(&self, name: &str) -> Option<&str> {
-        self.params.find(name)
+        self.params.get(name)
     }
 
     pub fn params(&self) -> &Params {
@@ -73,7 +77,7 @@ mod tests {
     use super::*;
     use hyper::Request as HRequest;
     use hyper::{Method, Uri};
-    use route_recognizer::Params;
+    use super::Params;
     use std::str::FromStr;
 
     #[test]

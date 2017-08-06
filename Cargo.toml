@@ -21,9 +21,11 @@ url = "1.5.1"
 serde = "1.0.10"
 serde_json = "1.0.2"
 log = "0.3.8"
-env_logger = "0.4.3"
 
 state = "0.3.1"
+http = { git = 'https://github.com/carllerche/http' }
+
 
 [dev-dependencies]
 reqwest = "0.7.1"
+env_logger = "0.4.3"

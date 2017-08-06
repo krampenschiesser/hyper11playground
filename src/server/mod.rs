@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use request::Request;
 use futures::future;
 use std::sync::Arc;
-use route_recognizer::Params;
+use request::Params;
 use native_tls::Pkcs12;
 use state::Container;
 
@@ -34,7 +34,7 @@ impl Server {
     pub fn start_http(self) -> Result<(), ::hyper::Error> {
         Protocol::Http.run(self)
     }
-    pub fn add_state<T: Send + Sync + 'static>(&self, state: T)  {
+    pub fn add_state<T: Send + Sync + 'static>(&self, state: T) {
         if !self.state.set::<T>(state) {
             error!("State for this type is already being managed!");
             panic!("Aborting due to duplicately managed state.");
@@ -67,8 +67,8 @@ impl Service for InternalServer {
             let r = router.clone();
             let result = r.resolve(req.method(), req.path());
             match result {
-                Some(tuple) => {
-                    let res = self.handle_route(req, tuple);
+                Some((route, params)) => {
+                    let res = self.handle_route(req, route, params.into());
                     match res {
                         Ok(resp) => HResponse::from(resp),
                         Err(err) => HResponse::from(err)
@@ -87,9 +87,8 @@ impl Service for InternalServer {
 }
 
 impl InternalServer {
-    fn handle_route(&self, req: HRequest, tuple: (&Route, Params)) -> Result<::response::Response, ::error::HttpError> {
-        let mut request = Request::new(req, &self.state,tuple.1);
-        let ref route = tuple.0;
+    fn handle_route(&self, req: HRequest, route: &Route, params: Params) -> Result<::response::Response, ::error::HttpError> {
+        let mut request = Request::new(req, &self.state, params);
         debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
         let ref r = route.callback;
         r.handle(&mut request)

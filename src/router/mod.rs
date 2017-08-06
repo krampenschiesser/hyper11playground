@@ -107,6 +107,8 @@ mod tests {
 
     #[test]
     fn get_resolution() {
+        use super::super::request::Params;
+
         let mut router = Router::new();
         let handler = HandlerStruct::default();
 
@@ -119,7 +121,7 @@ mod tests {
         let ref handler = route.get_callback();
         let req = ::hyper::Request::new(::hyper::Method::Get, ::hyper::Uri::default());
         let c = ::state::Container::new();
-        let mut r = Request::new(req, &c, ::route_recognizer::Params::new());
+        let mut r = Request::new(req, &c, Params::new());
         (*handler).handle(&mut r).unwrap();
     }
 
