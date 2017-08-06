@@ -17,6 +17,8 @@ extern crate tokio_service;
 extern crate tokio_proto;
 extern crate state;
 
+extern crate http;
+
 pub mod server;
 pub mod router;
 pub mod request;

@@ -8,17 +8,58 @@ use std::collections::BTreeMap;
 pub use self::params::Params;
 
 pub struct Request<'r> {
-    state: &'r Container,
-    hyper_req: ::hyper::Request,
+    state: StateHolder<'r>,
+    uri: ::http::Uri,
+    method: ::http::Method,
     params: Params,
     query: HashMap<String, Vec<String>>,
+}
+
+enum StateHolder<'r> {
+    None,
+    Some(&'r Container)
+}
+
+impl<'r> ::std::fmt::Debug for StateHolder<'r> {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match self {
+            &StateHolder::None => write!(f, "no state"),
+            _ => write!(f, "has state"),
+        }
+    }
+}
+
+impl<'r> Default for Request<'r> {
+    fn default() -> Self {
+        Request {
+            state: StateHolder::None,
+            uri: ::http::Uri::default(),
+            method: ::http::Method::default(),
+            params: Params::default(),
+            query: HashMap::default(),
+        }
+    }
 }
 
 
 impl<'r> Request<'r> {
     pub fn new(hyper_req: ::hyper::Request, state: &'r Container, params: Params) -> Self {
         let query = Request::parse_query(hyper_req.query());
-        Request { hyper_req, params, state, query }
+        let uri = hyper_req.uri().as_ref().parse::<::http::Uri>().unwrap();// we trust hyper
+        use ::hyper::Method::*;
+        let method = match hyper_req.method() {
+            &Get => ::http::method::GET,
+            &Put => ::http::method::PUT,
+            &Post => ::http::method::POST,
+            &Head => ::http::method::HEAD,
+            &Patch => ::http::method::PATCH,
+            &Connect => ::http::method::CONNECT,
+            &Delete => ::http::method::DELETE,
+            &Options => ::http::method::OPTIONS,
+            &Trace => ::http::method::TRACE,
+            &Extension(ref s) => unimplemented!(),
+        };
+        Request { uri, method, params, state: StateHolder::Some(state), query }
     }
 
     pub fn param(&self, name: &str) -> Option<&str> {
@@ -68,7 +109,10 @@ impl<'r> Request<'r> {
     }
 
     pub fn get_state<T: Send + Sync + 'static>(&self) -> Option<&T> {
-        self.state.try_get()
+        match self.state {
+            StateHolder::None => None,
+            StateHolder::Some(state) => state.try_get(),
+        }
     }
 }
 
