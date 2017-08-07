@@ -13,3 +13,23 @@ pub fn convert_method(method: &::hyper::Method) -> ::http::Method {
         &Extension(_) => unimplemented!(),
     }
 }
+
+pub fn convert_headers(headers: &::hyper::Headers) -> ::http::HeaderMap<String> {
+    let mut ret = ::http::HeaderMap::new();
+    for item in headers.iter() {
+        ret.insert(item.name(), item.value_string());
+    }
+    ret
+}
+
+pub fn convert_headers_to_hyper(headers: &::http::HeaderMap<String>) -> ::hyper::Headers{
+    let mut ret= ::hyper::Headers::new();
+    for (key,value) in headers.iter(){
+        ret.set_raw(String::from(key.as_str()),value.clone());
+    }
+    ret
+}
+
+pub fn convert_status_to_hyper(status: ::http::StatusCode) -> ::hyper::StatusCode {
+    ::hyper::StatusCode::try_from(status.as_u16()).unwrap()
+}

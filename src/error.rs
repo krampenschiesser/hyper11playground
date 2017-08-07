@@ -1,4 +1,5 @@
-use hyper::{Headers, StatusCode};
+use http::{StatusCode,HeaderMap};
+use http::status;
 //
 //pub trait HttpError: Sized {
 //    fn get_status(&self) -> u16;
@@ -10,7 +11,7 @@ use hyper::{Headers, StatusCode};
 pub struct HttpError {
     status: StatusCode,
     msg: String,
-    headers: Headers,
+    headers: HeaderMap<String>,
 }
 
 impl ::std::fmt::Display for HttpError {
@@ -29,18 +30,18 @@ impl HttpError {
     pub fn not_found<S: Into<String>>(resource: Option<S>) -> Self {
         let msg: String = resource.map(|x| x.into()).unwrap_or("".into());
         HttpError {
-            status: StatusCode::NotFound,
+            status: status::NOT_FOUND,
             msg: msg,
-            headers: Headers::new()
+            headers: HeaderMap::new()
         }
     }
 
     pub fn bad_url<S: Into<String>>(resource: S) -> Self {
         let msg: String = resource.into();
         HttpError {
-            status: StatusCode::BadRequest,
+            status: status::BAD_REQUEST,
             msg: msg,
-            headers: Headers::new()
+            headers: HeaderMap::new()
         }
     }
 }
@@ -49,6 +50,9 @@ impl From<HttpError> for ::hyper::Response {
     fn from(err: HttpError) -> ::hyper::Response {
         use hyper::{Response, Body};
 
-        Response::new().with_status(err.status).with_body(Body::from(err.msg)).with_headers(err.headers)
+        Response::new()
+            .with_status(::hyper_conversion::convert_status_to_hyper(err.status))
+            .with_body(Body::from(err.msg))
+            .with_headers(::hyper_conversion::convert_headers_to_hyper(&err.headers))
     }
 }

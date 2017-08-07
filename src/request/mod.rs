@@ -49,10 +49,7 @@ impl<'r> Default for Request<'r> {
 
 impl<'r> Request<'r> {
     pub fn from_hyper(hyper_req: ::hyper::Request, state: &'r Container, params: Params) -> Self {
-        let mut headers = HeaderMap::new();
-        for item in hyper_req.headers().iter() {
-            headers.insert(item.name(), item.value_string());
-        }
+        let headers = ::hyper_conversion::convert_headers(hyper_req.headers());
         let remote_addr = hyper_req.remote_addr();
 
         let query = Request::parse_query(hyper_req.query());
