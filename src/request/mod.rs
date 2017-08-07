@@ -1,18 +1,21 @@
-mod params;
-
 use std::collections::HashMap;
-
 use state::Container;
 use std::collections::BTreeMap;
+use http::{Uri, HeaderMap, Method};
+
+mod params;
 
 pub use self::params::Params;
+
 
 pub struct Request<'r> {
     state: StateHolder<'r>,
     uri: ::http::Uri,
     method: ::http::Method,
     params: Params,
+    headers: HeaderMap<String>,
     query: HashMap<String, Vec<String>>,
+    remote_addr: Option<::std::net::SocketAddr>,
 }
 
 enum StateHolder<'r> {
@@ -37,13 +40,21 @@ impl<'r> Default for Request<'r> {
             method: ::http::Method::default(),
             params: Params::default(),
             query: HashMap::default(),
+            headers: HeaderMap::default(),
+            remote_addr: None,
         }
     }
 }
 
 
 impl<'r> Request<'r> {
-    pub fn new(hyper_req: ::hyper::Request, state: &'r Container, params: Params) -> Self {
+    pub fn from_hyper(hyper_req: ::hyper::Request, state: &'r Container, params: Params) -> Self {
+        let mut headers = HeaderMap::new();
+        for item in hyper_req.headers().iter() {
+            headers.insert(item.name(), item.value_string());
+        }
+        let remote_addr = hyper_req.remote_addr();
+
         let query = Request::parse_query(hyper_req.query());
         let uri = hyper_req.uri().as_ref().parse::<::http::Uri>().unwrap();// we trust hyper
         use ::hyper::Method::*;
@@ -57,9 +68,10 @@ impl<'r> Request<'r> {
             &Delete => ::http::method::DELETE,
             &Options => ::http::method::OPTIONS,
             &Trace => ::http::method::TRACE,
-            &Extension(ref s) => unimplemented!(),
+            &Extension(_) => unimplemented!(),
         };
-        Request { uri, method, params, state: StateHolder::Some(state), query }
+
+        Request { uri, method, params, state: StateHolder::Some(state), query, headers, remote_addr }
     }
 
     pub fn param(&self, name: &str) -> Option<&str> {
@@ -128,7 +140,7 @@ mod tests {
     fn test_query_param() {
         let c = Container::new();
         let hr = HRequest::new(Method::Get, Uri::from_str("/bla?hallo=welt&hallo=blubb").unwrap());
-        let req = Request::new(hr, &c, Params::new());
+        let req = Request::from_hyper(hr, &c, Params::new());
         assert_eq!("welt", req.query_first("hallo").unwrap());
         assert_eq!(None, req.query_first("ne"));
         assert_eq!(2, req.query("hallo").unwrap().len());

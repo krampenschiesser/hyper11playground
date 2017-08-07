@@ -121,7 +121,7 @@ mod tests {
         let ref handler = route.get_callback();
         let req = ::hyper::Request::new(::hyper::Method::Get, ::hyper::Uri::default());
         let c = ::state::Container::new();
-        let mut r = Request::new(req, &c, Params::new());
+        let mut r = Request::from_hyper(req, &c, Params::new());
         (*handler).handle(&mut r).unwrap();
     }
 

@@ -88,7 +88,7 @@ impl Service for InternalServer {
 
 impl InternalServer {
     fn handle_route(&self, req: HRequest, route: &Route, params: Params) -> Result<::response::Response, ::error::HttpError> {
-        let mut request = Request::new(req, &self.state, params);
+        let mut request = Request::from_hyper(req, &self.state, params);
         debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
         let ref r = route.callback;
         r.handle(&mut request)
