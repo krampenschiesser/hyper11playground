@@ -57,19 +57,8 @@ impl<'r> Request<'r> {
 
         let query = Request::parse_query(hyper_req.query());
         let uri = hyper_req.uri().as_ref().parse::<::http::Uri>().unwrap();// we trust hyper
-        use ::hyper::Method::*;
-        let method = match hyper_req.method() {
-            &Get => ::http::method::GET,
-            &Put => ::http::method::PUT,
-            &Post => ::http::method::POST,
-            &Head => ::http::method::HEAD,
-            &Patch => ::http::method::PATCH,
-            &Connect => ::http::method::CONNECT,
-            &Delete => ::http::method::DELETE,
-            &Options => ::http::method::OPTIONS,
-            &Trace => ::http::method::TRACE,
-            &Extension(_) => unimplemented!(),
-        };
+
+        let method = ::hyper_conversion::convert_method(hyper_req.method());
 
         Request { uri, method, params, state: StateHolder::Some(state), query, headers, remote_addr }
     }

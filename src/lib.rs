@@ -19,6 +19,7 @@ extern crate state;
 
 extern crate http;
 
+mod hyper_conversion;
 pub mod server;
 pub mod router;
 pub mod request;
@@ -26,6 +27,7 @@ pub mod response;
 pub mod handler;
 pub mod error;
 pub mod prelude;
+
 
 #[cfg(test)]
 mod tests {

@@ -1,4 +1,5 @@
-use hyper::Method;
+use http::Method;
+use http::method;
 use handler::Handler;
 use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
@@ -25,7 +26,25 @@ impl Router {
     }
 
     pub fn get<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        self.add(Method::Get, path, h)
+        self.add(method::GET, path, h)
+    }
+    pub fn put<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
+        self.add(method::PUT, path, h)
+    }
+    pub fn post<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
+        self.add(method::POST, path, h)
+    }
+    pub fn delete<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
+        self.add(method::DELETE, path, h)
+    }
+    pub fn options<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
+        self.add(method::OPTIONS, path, h)
+    }
+    pub fn head<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
+        self.add(method::HEAD, path, h)
+    }
+    pub fn patch<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
+        self.add(method::PATCH, path, h)
     }
 
     pub fn resolve<S: AsRef<str>>(&self, method: &Method, path: S) -> Option<(&Route, Params)> {
@@ -66,7 +85,7 @@ impl Route {
 mod tests {
     use super::*;
     use ::prelude::*;
-    use hyper::Method::*;
+    use http::method::*;
     use std::sync::Mutex;
     use std::boxed::Box;
 
@@ -114,10 +133,10 @@ mod tests {
 
         router.get("/hello", handler);
 
-        let r = router.resolve(&Get, "/helloNone");
+        let r = router.resolve(&GET, "/helloNone");
         assert!(r.is_none());
 
-        let (route, _) = router.resolve(&Get, "/hello").unwrap();
+        let (route, _) = router.resolve(&GET, "/hello").unwrap();
         let ref handler = route.get_callback();
         let req = ::hyper::Request::new(::hyper::Method::Get, ::hyper::Uri::default());
         let c = ::state::Container::new();
@@ -133,11 +152,11 @@ mod tests {
         router.get("/hello/:param1", HandlerStruct::default());
         router.get("/hello/:param1/bla/:param2", HandlerStruct::default());
 
-        assert!(router.resolve(&Get, "/hello").is_none());
-        has_param(router.resolve(&Get, "/hello/val1").unwrap().1, "param1", "val1");
-        has_param(router.resolve(&Get, "/hello/val1/bla/val2").unwrap().1, "param1", "val1");
-        has_param(router.resolve(&Get, "/hello/val1/bla/val2").unwrap().1, "param2", "val2");
-        has_param(router.resolve(&Get, "/hello/wild/schrott/more").unwrap().1, "card", "schrott/more");
+        assert!(router.resolve(&GET, "/hello").is_none());
+        has_param(router.resolve(&GET, "/hello/val1").unwrap().1, "param1", "val1");
+        has_param(router.resolve(&GET, "/hello/val1/bla/val2").unwrap().1, "param1", "val1");
+        has_param(router.resolve(&GET, "/hello/val1/bla/val2").unwrap().1, "param2", "val2");
+        has_param(router.resolve(&GET, "/hello/wild/schrott/more").unwrap().1, "card", "schrott/more");
     }
 
     fn has_param(p: Params, name: &str, expected: &str) {
@@ -149,6 +168,6 @@ mod tests {
     fn hello_world_test() {
         let mut router = Router::new();
         router.get("/hello/:hello", HandlerStruct::default());
-        has_param(router.resolve(&Get, "/hello/val1").unwrap().1, "hello", "val1");
+        has_param(router.resolve(&GET, "/hello/val1").unwrap().1, "hello", "val1");
     }
 }

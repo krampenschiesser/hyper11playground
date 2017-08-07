@@ -65,7 +65,8 @@ impl Service for InternalServer {
             let ref router: Arc<Router> = self.router;
 
             let r = router.clone();
-            let result = r.resolve(req.method(), req.path());
+            let method = ::hyper_conversion::convert_method(req.method());
+            let result = r.resolve(&method, req.path());
             match result {
                 Some((route, params)) => {
                     let res = self.handle_route(req, route, params.into());
