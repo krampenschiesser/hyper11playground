@@ -6,6 +6,7 @@ pub struct Response {
     body: Body,
 }
 
+//type Body = tokio_proto::streaming::Body<Chunk, ::Error>;
 struct Body {
     bytes: Vec<u8>,
 }

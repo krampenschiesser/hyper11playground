@@ -20,6 +20,7 @@ fn show_history(req: &mut Request) -> Result<Response, HttpError> {
     let r = state.echo_history.read().unwrap();
     Ok(r.join("\n").into())
 }
+
 fn response(req: &mut Request) -> Result<Response, HttpError> {
     let o= req.param("hello");
 
@@ -52,8 +53,8 @@ fn main() {
 mod tests {
     extern crate reqwest;
 
-    #[test]
-    fn state_req() {
-        fail!("bla")
-    }
+//    #[test]
+//    fn state_req() {
+//       super::main();
+//    }
 }

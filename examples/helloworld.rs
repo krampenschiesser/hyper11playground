@@ -1,6 +1,6 @@
-extern crate hyper11playground;
+extern crate rest_in_rust;
 
-use hyper11playground::prelude::*;
+use rest_in_rust::prelude::*;
 
 fn hello_world(req: &mut Request) -> Result<Response, HttpError> {
     Ok(req.param("world").unwrap_or("sauerland").into())

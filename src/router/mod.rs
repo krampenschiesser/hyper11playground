@@ -87,9 +87,8 @@ mod tests {
     use ::prelude::*;
     use http::method::*;
     use std::sync::Mutex;
-    use std::boxed::Box;
 
-    fn handle(req: &mut Request) -> Result<Response, HttpError> {
+    fn handle(_: &mut Request) -> Result<Response, HttpError> {
         return Ok("bla".into());
     }
 
@@ -104,7 +103,7 @@ mod tests {
     }
 
     impl ::handler::Handler for HandlerStruct {
-        fn handle(&self, req: &mut Request) -> Result<Response, HttpError> {
+        fn handle(&self, _: &mut Request) -> Result<Response, HttpError> {
             let mut r = self.called.lock().unwrap();
             *r = true;
             Ok("".into())

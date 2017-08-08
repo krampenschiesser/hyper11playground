@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 use state::Container;
-use std::collections::BTreeMap;
-use http::{Uri, HeaderMap, Method};
+use http::Request as HttpRequest;
+use std::ops::Deref;
 
 mod params;
+mod body;
 
 pub use self::params::Params;
+pub use self::body::RequestBody;
 
 
 pub struct Request<'r> {
+    inner: HttpRequest<RequestBody>,
     state: StateHolder<'r>,
-    uri: ::http::Uri,
-    method: ::http::Method,
     params: Params,
-    headers: HeaderMap<String>,
     query: HashMap<String, Vec<String>>,
     remote_addr: Option<::std::net::SocketAddr>,
 }
@@ -35,12 +35,10 @@ impl<'r> ::std::fmt::Debug for StateHolder<'r> {
 impl<'r> Default for Request<'r> {
     fn default() -> Self {
         Request {
+            inner: HttpRequest::default(),
             state: StateHolder::None,
-            uri: ::http::Uri::default(),
-            method: ::http::Method::default(),
             params: Params::default(),
             query: HashMap::default(),
-            headers: HeaderMap::default(),
             remote_addr: None,
         }
     }
@@ -49,7 +47,7 @@ impl<'r> Default for Request<'r> {
 
 impl<'r> Request<'r> {
     pub fn from_hyper(hyper_req: ::hyper::Request, state: &'r Container, params: Params) -> Self {
-        let headers = ::hyper_conversion::convert_headers(hyper_req.headers());
+//        let headers = ::hyper_conversion::convert_headers(hyper_req.headers());
         let remote_addr = hyper_req.remote_addr();
 
         let query = Request::parse_query(hyper_req.query());
@@ -57,7 +55,15 @@ impl<'r> Request<'r> {
 
         let method = ::hyper_conversion::convert_method(hyper_req.method());
 
-        Request { uri, method, params, state: StateHolder::Some(state), query, headers, remote_addr }
+        let mut builder = HttpRequest::builder();
+        builder.uri(uri);
+        builder.method(method);
+        for item in hyper_req.headers().iter() {
+            builder.header(item.name(), item.value_string().as_str());
+        }
+        let body = RequestBody::from(hyper_req.body());
+        let inner = builder.body(body).unwrap();//fixme do exception handling
+        Request { inner, params, state: StateHolder::Some(state), query, remote_addr }
     }
 
     pub fn param(&self, name: &str) -> Option<&str> {
@@ -111,6 +117,18 @@ impl<'r> Request<'r> {
             StateHolder::None => None,
             StateHolder::Some(state) => state.try_get(),
         }
+    }
+
+    pub fn set_state<T: Send + Sync + 'static>(&mut self, state: &'r Container) {
+        self.state = StateHolder::Some(state);
+    }
+}
+
+impl<'r> Deref for Request<'r> {
+    type Target = HttpRequest<RequestBody>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 

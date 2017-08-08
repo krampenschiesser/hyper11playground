@@ -1,6 +1,6 @@
-extern crate hyper11playground;
+extern crate rest_in_rust;
 
-use hyper11playground::prelude::*;
+use rest_in_rust::prelude::*;
 
 fn query_param(req: &mut Request) -> Result<Response, HttpError> {
     let all_params = req.query_all();

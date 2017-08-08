@@ -1,7 +1,7 @@
-extern crate hyper11playground;
+extern crate rest_in_rust;
 extern crate native_tls;
 
-use hyper11playground::prelude::*;
+use rest_in_rust::prelude::*;
 use native_tls::Pkcs12;
 
 

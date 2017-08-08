@@ -1,5 +1,5 @@
 use hyper::StatusCode;
-use hyper::server::{Http, Request as HRequest, Response as HResponse, Service};
+use hyper::server::{Request as HRequest, Response as HResponse, Service};
 use router::{Router, Route};
 use std::net::SocketAddr;
 use request::Request;
@@ -8,6 +8,11 @@ use std::sync::Arc;
 use request::Params;
 use native_tls::Pkcs12;
 use state::Container;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+mod protocol;
+
+use self::protocol::Protocol;
 
 pub struct Server {
     addr: SocketAddr,
@@ -20,10 +25,35 @@ struct InternalServer {
     router: Arc<Router>
 }
 
-//#[derive(Copy, Clone)]
-enum Protocol {
-    Http,
-    Https(Pkcs12)
+pub struct ServerStopper {
+    stop: AtomicBool,
+}
+
+impl ServerStopper {
+    pub fn stop(&self) {
+        self.stop.store(true, Ordering::SeqCst);
+    }
+}
+
+impl Default for ServerStopper {
+    fn default() -> Self {
+        ServerStopper { stop: AtomicBool::new(false) }
+    }
+}
+
+impl ::futures::Future for ServerStopper {
+    type Item = ();
+    type Error = ();
+
+    fn poll(&mut self) -> ::futures::Poll<Self::Item, Self::Error> {
+        if self.stop.load(Ordering::SeqCst) {
+            let ready = ::futures::Async::Ready(());
+            Ok(ready)
+        } else {
+            let noready = ::futures::Async::NotReady;
+            Ok(noready)
+        }
+    }
 }
 
 impl Server {
@@ -31,7 +61,7 @@ impl Server {
         Server { addr: addr, router: Arc::new(r), state: Arc::new(Container::new()) }
     }
 
-    pub fn start_http(self) -> Result<(), ::hyper::Error> {
+    pub fn start_http(self) -> Result<ServerStopper, ::hyper::Error> {
         Protocol::Http.run(self)
     }
     pub fn add_state<T: Send + Sync + 'static>(&self, state: T) {
@@ -41,7 +71,7 @@ impl Server {
         }
     }
 
-    pub fn start_https(self, pkcs: Pkcs12) -> Result<(), ::hyper::Error> {
+    pub fn start_https(self, pkcs: Pkcs12) -> Result<ServerStopper, ::hyper::Error> {
         Protocol::Https(pkcs).run(self)
     }
 }
@@ -96,74 +126,5 @@ impl InternalServer {
     }
 }
 
-
-impl Protocol {
-    fn run(self, server: Server) -> Result<(), ::hyper::Error> {
-        match self {
-            Protocol::Http => Self::run_http(server),
-            Protocol::Https(pkcs) => Self::run_https(pkcs, server),
-        }
-    }
-
-    fn run_https(pkcs: Pkcs12, server: Server) -> Result<(), ::hyper::Error> {
-        use hyper::server::Http;
-        use native_tls::{TlsAcceptor, Pkcs12};
-        use tokio_proto::TcpServer;
-        use tokio_service::Service;
-        use tokio_tls::proto;
-
-        let tls_cx = TlsAcceptor::builder(pkcs).unwrap()
-            .build().unwrap();
-
-        let proto = proto::Server::new(Http::new(), tls_cx);
-
-        let addr = server.addr.clone();
-        let srv = TcpServer::new(proto, addr);
-        let router = server.router;
-        let state = server.state;
-        srv.serve(move || Ok(InternalServer { router: router.clone(), state: state.clone() }));
-        Ok(())
-    }
-
-    fn run_http(server: Server) -> Result<(), ::hyper::Error> {
-        //fixme return server, but what type does it have???
-        let addr = server.addr.clone();
-        let router = server.router;
-        let state = server.state;
-        let s = Http::new().bind(&addr, move || Ok(InternalServer { router: router.clone(), state: state.clone() }))?;
-        s.run()?;
-        Ok(())
-    }
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use hyper::header::ContentLength;
-
-    struct TestServer;
-
-    impl ::hyper::server::Service for TestServer {
-        type Request = ::hyper::Request;
-        type Response = ::hyper::Response;
-        type Error = ::hyper::Error;
-        type Future = ::futures::future::FutureResult<Self::Response, Self::Error>;
-
-        fn call(&self, _req: Self::Request) -> Self::Future {
-            ::futures::future::ok(
-                Self::Response::new()
-                    .with_header(ContentLength("test".len() as u64))
-                    .with_body("test")
-            )
-        }
-    }
-
-    #[test]
-    fn test_start_server() {
-        use hyper::server::Http;
-        //        let addr = "127.0.0.1:3000".parse().unwrap();
-        let s = TestServer {};
-        //        let server: ::hyper::Server<Server, ::hyper::Body> = Http::new().bind(&addr, move || Ok(s)).unwrap();
-        //        server.run().unwrap();
-    }
-}
+mod tests {}

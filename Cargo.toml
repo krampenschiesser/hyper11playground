@@ -1,5 +1,5 @@
 [package]
-name = "hyper11playground"
+name = "rest_in_rust"
 version = "0.1.0"
 authors = ["Christian <krampenschiesser@gmail.com>"]
 
@@ -14,6 +14,7 @@ tokio-tls = {version="0.1", features = ["tokio-proto"]}
 native-tls = "0.1"
 tokio-service = "0.1"
 tokio-proto = "0.1"
+
 
 futures = "0.1.14"
 route-recognizer = "0.1"
