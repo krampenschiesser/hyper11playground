@@ -9,14 +9,14 @@ pub enum Protocol {
 }
 
 impl Protocol {
-    pub fn run(self, server: Server) -> Result<Arc<ServerStopper>, ::hyper::Error> {
+    pub fn run(self, server: Server) -> Result<ServerStopper, ::hyper::Error> {
         match self {
             Protocol::Http => Self::run_http(server),
             Protocol::Https(pkcs) => Self::run_https(pkcs, server),
         }
     }
 
-    pub fn run_https(pkcs: Pkcs12, server: Server) -> Result<Arc<ServerStopper>, ::hyper::Error> {
+    pub fn run_https(pkcs: Pkcs12, server: Server) -> Result<ServerStopper, ::hyper::Error> {
         use hyper::server::Http;
         use native_tls::TlsAcceptor;
         use tokio_proto::TcpServer;
@@ -36,14 +36,16 @@ impl Protocol {
         Ok(ServerStopper::default())
     }
 
-    pub fn run_http(server: Server) -> Result<Arc<ServerStopper>, ::hyper::Error> {
+    pub fn run_http(server: Server) -> Result<ServerStopper, ::hyper::Error> {
         //fixme return server, but what type does it have???
         let addr = server.addr.clone();
         let router = server.router;
         let state = server.state;
+        let stopper = server.stopper;
+        state.set(stopper);
         let s = Http::new().bind(&addr, move || Ok(InternalServer { router: router.clone(), state: state.clone() }))?;
 
-        let stopper = Arc::new(super::ServerStopper { stop: ::std::sync::atomic::AtomicBool::new(false) });
+        let stopper = super::ServerStopper { stop: Arc::new(::std::sync::atomic::AtomicBool::new(false)) };
         s.run_until(stopper.clone())?;
         Ok(stopper)
     }

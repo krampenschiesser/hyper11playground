@@ -18,6 +18,7 @@ pub struct Server {
     addr: SocketAddr,
     router: Arc<Router>,
     state: Arc<Container>,
+    stopper: ServerStopper,
 }
 
 struct InternalServer {
@@ -25,8 +26,9 @@ struct InternalServer {
     router: Arc<Router>
 }
 
+#[derive(Debug, Clone)]
 pub struct ServerStopper {
-    stop: AtomicBool,
+    stop: Arc<AtomicBool>,
 }
 
 impl ServerStopper {
@@ -37,7 +39,7 @@ impl ServerStopper {
 
 impl Default for ServerStopper {
     fn default() -> Self {
-        ServerStopper { stop: AtomicBool::new(false) }
+        ServerStopper { stop: Arc::new(AtomicBool::new(false)) }
     }
 }
 
@@ -47,6 +49,7 @@ impl ::futures::Future for ServerStopper {
 
     fn poll(&mut self) -> ::futures::Poll<Self::Item, Self::Error> {
         if self.stop.load(Ordering::SeqCst) {
+            info!("Stop requested, will shutdown hyper");
             let ready = ::futures::Async::Ready(());
             Ok(ready)
         } else {
@@ -58,12 +61,24 @@ impl ::futures::Future for ServerStopper {
 
 impl Server {
     pub fn new(addr: SocketAddr, r: Router) -> Self {
-        Server { addr: addr, router: Arc::new(r), state: Arc::new(Container::new()) }
+        Server { stopper: ServerStopper::default(), addr: addr, router: Arc::new(r), state: Arc::new(Container::new()) }
     }
 
-    pub fn start_http(self) -> Result<ServerStopper, ::hyper::Error> {
+    pub fn start_http_non_blocking(self) -> Result<ServerStopper, ::hyper::Error> {
+        use std::thread::spawn;
+        let stopper = self.stopper.clone();
+
+        spawn(||self.start_http_blocking());
+        Ok(stopper)
+    }
+    pub fn start_http_blocking(self) -> Result<ServerStopper, ::hyper::Error> {
         Protocol::Http.run(self)
     }
+
+    pub fn start_https_blocking(self, pkcs: Pkcs12) -> Result<ServerStopper, ::hyper::Error> {
+        Protocol::Https(pkcs).run(self)
+    }
+
     pub fn add_state<T: Send + Sync + 'static>(&self, state: T) {
         if !self.state.set::<T>(state) {
             error!("State for this type is already being managed!");
@@ -71,14 +86,15 @@ impl Server {
         }
     }
 
-    pub fn start_https(self, pkcs: Pkcs12) -> Result<ServerStopper, ::hyper::Error> {
-        Protocol::Https(pkcs).run(self)
+
+    pub fn get_stopper(&self) -> ServerStopper {
+        self.stopper.clone()
     }
 }
 
 impl Default for Server {
     fn default() -> Self {
-        Server { addr: "127.0.0.1:8080".parse().unwrap(), router: Arc::new(Router::new()), state: Arc::new(Container::new()) }
+        Server { stopper: ServerStopper::default(), addr: "127.0.0.1:8080".parse().unwrap(), router: Arc::new(Router::new()), state: Arc::new(Container::new()) }
     }
 }
 

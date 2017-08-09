@@ -13,5 +13,5 @@ fn main() {
     r.get("/hello/:world", hello_world);
 
     let  s = Server::new(addr,r);
-    s.start_http().unwrap();
+    s.start_http_blocking().unwrap();
 }

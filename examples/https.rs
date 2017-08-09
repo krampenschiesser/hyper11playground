@@ -19,5 +19,5 @@ fn main() {
 
     let der = include_bytes!("certificate.p12");
     let cert = Pkcs12::from_der(der, "password").unwrap();
-    s.start_https(cert).unwrap();
+    s.start_https_blocking(cert).unwrap();
 }

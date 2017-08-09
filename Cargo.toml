@@ -27,6 +27,6 @@ state = "0.3.1"
 http = { git = 'https://github.com/carllerche/http' }
 
 
+reqwest = "0.7.1" #should be in dev dependencies
 [dev-dependencies]
-reqwest = "0.7.1"
 env_logger = "0.4.3"

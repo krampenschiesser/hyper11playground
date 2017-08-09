@@ -18,6 +18,9 @@ extern crate tokio_proto;
 extern crate state;
 
 extern crate http;
+//#[cfg(debug_assertions)]
+//extern crate reqwest;
+
 
 mod hyper_conversion;
 pub mod server;
