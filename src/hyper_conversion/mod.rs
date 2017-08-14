@@ -15,17 +15,22 @@ pub fn convert_method(method: &::hyper::Method) -> ::http::Method {
 }
 
 pub fn convert_headers(headers: &::hyper::Headers) -> ::http::HeaderMap<String> {
+    use std::convert::TryFrom;
+
     let mut ret = ::http::HeaderMap::new();
     for item in headers.iter() {
-        ret.insert(item.name(), item.value_string());
+        if let Ok(key) = ::http::header::HeaderName::try_from(item.name()) {
+            let value: String = item.value_string();
+            ret.insert(key, value);
+        }
     }
     ret
 }
 
-pub fn convert_headers_to_hyper(headers: &::http::HeaderMap<String>) -> ::hyper::Headers{
-    let mut ret= ::hyper::Headers::new();
-    for (key,value) in headers.iter(){
-        ret.set_raw(String::from(key.as_str()),value.clone());
+pub fn convert_headers_to_hyper(headers: &::http::HeaderMap<String>) -> ::hyper::Headers {
+    let mut ret = ::hyper::Headers::new();
+    for (key, value) in headers.iter() {
+        ret.set_raw(String::from(key.as_str()), value.clone());
     }
     ret
 }
