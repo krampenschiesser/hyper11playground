@@ -20,6 +20,10 @@ impl Response {
     fn body(&self) -> &::request::RequestBody {
         self.inner.body()
     }
+
+    fn into_inner(self) -> HttpResponse<::request::RequestBody> {
+        self.inner
+    }
 }
 
 impl Deref for Response {
@@ -32,7 +36,7 @@ impl Deref for Response {
 
 impl From<String> for Response {
     fn from(val: String) -> Self {
-        let builder = HttpResponse::builder();
+        let mut builder = HttpResponse::builder();
         builder.status(status::OK);
         let x = builder.body(val.into()).unwrap();// in the code only Ok is used
         Response { inner: x }
@@ -41,7 +45,7 @@ impl From<String> for Response {
 
 impl<'a> From<&'a str> for Response {
     fn from(val: &'a str) -> Self {
-        let builder = HttpResponse::builder();
+        let mut builder = HttpResponse::builder();
         builder.status(status::OK);
         let body: ::request::RequestBody = val.to_string().into();
         let x: HttpResponse<::request::RequestBody> = builder.body(body).unwrap();// in the code only Ok is used
@@ -51,7 +55,10 @@ impl<'a> From<&'a str> for Response {
 
 impl From<Response> for HResponse {
     fn from(res: Response) -> HResponse {
-        let b = res.body().clone();
+        use futures::{Future, Stream};
+        let (head,body) = res.into_inner().into_parts();
+
+        let b: ::hyper::Body = body.wait().into_inner();
         HResponse::new()
             .with_status(::hyper::StatusCode::Ok)
             .with_body(b)
