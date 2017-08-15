@@ -3,26 +3,64 @@ use hyper::Body as HBody;
 use http::Response as HttpResponse;
 use std::ops::Deref;
 use http::{StatusCode, HeaderMap, status};
-use http::header::HeaderValue;
+use http::header::{HeaderValue, HeaderName};
 
 pub struct Response {
     inner: HttpResponse<::request::RequestBody>,
 }
 
 impl Response {
-    fn status(&self) -> StatusCode {
+    pub fn builder() -> ResponseBuilder {
+        ResponseBuilder::default()
+    }
+    pub fn status(&self) -> StatusCode {
         self.inner.status()
     }
-    fn headers(&self) -> &HeaderMap<HeaderValue> {
+    pub fn headers(&self) -> &HeaderMap<HeaderValue> {
         self.inner.headers()
     }
 
-    fn body(&self) -> &::request::RequestBody {
+    pub fn body(&self) -> &::request::RequestBody {
         self.inner.body()
     }
 
-    fn into_inner(self) -> HttpResponse<::request::RequestBody> {
+    pub fn into_inner(self) -> HttpResponse<::request::RequestBody> {
         self.inner
+    }
+}
+
+pub struct ResponseBuilder {
+    status: StatusCode,
+    body: ::request::RequestBody,
+    header: HeaderMap<HeaderValue>,
+}
+
+impl ResponseBuilder {
+    pub fn status<T: Into<StatusCode>>(&mut self, status: T) -> &mut Self {
+        self.status = status.into();
+        self
+    }
+    pub fn header<N: Into<HeaderName>,K: Into<HeaderValue>>(&mut self, name: N, value: K) -> &mut Self {
+        self.header.insert(name.into(), value.into());
+        self
+    }
+    pub fn body<T: Into<::request::RequestBody>>(&mut self, body: T) -> &mut Self {
+        self.body = body.into();
+        self
+    }
+
+    pub fn build(self) -> Result<Response,::http::Error> {
+        let mut builder = HttpResponse::builder();
+        builder.status(self.status);
+        let mut inner = builder.body(self.body)?;
+        *inner.headers_mut() = self.header;
+        Ok(Response{inner})
+    }
+}
+
+impl Default for ResponseBuilder {
+    fn default() -> Self {
+        ResponseBuilder { status: ::http::status::OK, body: "".into(), header: HeaderMap::new() }
     }
 }
 
@@ -38,7 +76,7 @@ impl From<String> for Response {
     fn from(val: String) -> Self {
         let mut builder = HttpResponse::builder();
         builder.status(status::OK);
-        let x = builder.body(val.into()).unwrap();// in the code only Ok is used
+        let x = builder.body(val.into()).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
 }
@@ -48,7 +86,7 @@ impl<'a> From<&'a str> for Response {
         let mut builder = HttpResponse::builder();
         builder.status(status::OK);
         let body: ::request::RequestBody = val.to_string().into();
-        let x: HttpResponse<::request::RequestBody> = builder.body(body).unwrap();// in the code only Ok is used
+        let x: HttpResponse<::request::RequestBody> = builder.body(body).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
 }
