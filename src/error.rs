@@ -36,7 +36,7 @@ impl HttpError {
         }
     }
 
-    pub fn bad_url<S: Into<String>>(resource: S) -> Self {
+    pub fn bad_request<S: Into<String>>(resource: S) -> Self {
         let msg: String = resource.into();
         HttpError {
             status: status::BAD_REQUEST,
