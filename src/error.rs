@@ -79,6 +79,7 @@ impl From<String> for HttpError {
 
 impl From<::http::Error> for HttpError {
     fn from(error: ::http::Error) -> Self {
+        use std::error::Error;
         HttpError::internal_server_error(error.description())
     }
 }
