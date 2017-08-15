@@ -44,6 +44,15 @@ impl HttpError {
             headers: HeaderMap::new()
         }
     }
+
+    pub fn unauthorized<S: Into<String>>(resource: S) -> Self {
+        let msg: String = resource.into();
+        HttpError {
+            status: status::UNAUTHORIZED,
+            msg: msg,
+            headers: HeaderMap::new()
+        }
+    }
 }
 
 impl From<HttpError> for ::hyper::Response {
