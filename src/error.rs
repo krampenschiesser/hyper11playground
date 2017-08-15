@@ -83,3 +83,10 @@ impl From<::http::Error> for HttpError {
         HttpError::internal_server_error(error.description())
     }
 }
+
+impl From<::std::io::Error> for HttpError {
+    fn from(error: ::std::io::Error) -> Self {
+        use std::error::Error;
+        HttpError::internal_server_error(error.description())
+    }
+}
