@@ -1,4 +1,4 @@
-use http::{StatusCode,HeaderMap};
+use http::{StatusCode, HeaderMap};
 use http::status;
 //
 //pub trait HttpError: Sized {
@@ -54,5 +54,17 @@ impl From<HttpError> for ::hyper::Response {
             .with_status(::hyper_conversion::convert_status_to_hyper(err.status))
             .with_body(Body::from(err.msg))
             .with_headers(::hyper_conversion::convert_headers_to_hyper(&err.headers))
+    }
+}
+
+impl<'a> From<&'a str> for HttpError {
+    fn from(msg: &'a str) -> Self {
+        HttpError { status: ::http::status::INTERNAL_SERVER_ERROR, headers: HeaderMap::new(), msg: msg.into() }
+    }
+}
+
+impl From<String> for HttpError {
+    fn from(msg: String) -> Self {
+        HttpError { status: ::http::status::INTERNAL_SERVER_ERROR, headers: HeaderMap::new(), msg: msg }
     }
 }
