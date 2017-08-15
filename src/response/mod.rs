@@ -13,6 +13,14 @@ impl Response {
     pub fn builder() -> ResponseBuilder {
         ResponseBuilder::default()
     }
+    pub fn moved_permanent<'a, T: AsRef<&'a str>>(url: T) -> Result<Response, ::http::Error> {
+        use std::str::FromStr;
+        let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
+        let mut builder = Response::builder();
+        builder.status(::http::status::MOVED_PERMANENTLY);
+        builder.header(::http::header::LOCATION, value);
+        builder.build()
+    }
     pub fn status(&self) -> StatusCode {
         self.inner.status()
     }
@@ -40,7 +48,7 @@ impl ResponseBuilder {
         self.status = status.into();
         self
     }
-    pub fn header<N: Into<HeaderName>,K: Into<HeaderValue>>(&mut self, name: N, value: K) -> &mut Self {
+    pub fn header<N: Into<HeaderName>, K: Into<HeaderValue>>(&mut self, name: N, value: K) -> &mut Self {
         self.header.insert(name.into(), value.into());
         self
     }
@@ -49,12 +57,12 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Response,::http::Error> {
+    pub fn build(self) -> Result<Response, ::http::Error> {
         let mut builder = HttpResponse::builder();
         builder.status(self.status);
         let mut inner = builder.body(self.body)?;
         *inner.headers_mut() = self.header;
-        Ok(Response{inner})
+        Ok(Response { inner })
     }
 }
 
