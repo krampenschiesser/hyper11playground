@@ -90,3 +90,10 @@ impl From<::std::io::Error> for HttpError {
         HttpError::internal_server_error(error.description())
     }
 }
+//fixme would be awesome if this works
+//impl<T: ::std::error::Error> From<T> for HttpError {
+//    fn from(error: T) -> Self {
+//        use std::error::Error;
+//        HttpError::internal_server_error(error.description())
+//    }
+//}
