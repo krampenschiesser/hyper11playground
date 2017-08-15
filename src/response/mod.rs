@@ -13,7 +13,7 @@ impl Response {
         ResponseBuilder::default()
     }
 
-    pub fn moved_permanent<'a, T: AsRef<&'a str>>(url: T) -> Result<Response, ::http::Error> {
+    pub fn moved_permanent<'a, T: AsRef<&'a str>>(url: T) -> Result<Response, ::error::HttpError> {
         use std::str::FromStr;
         let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
         Response::builder()
@@ -64,7 +64,7 @@ impl ResponseBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Response, ::http::Error> {
+    pub fn build(self) -> Result<Response, ::error::HttpError> {
         let mut builder = HttpResponse::builder();
         builder.status(self.status);
         let mut inner = builder.body(self.body)?;
