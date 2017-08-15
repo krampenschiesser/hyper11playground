@@ -56,11 +56,21 @@ impl<'a> From<&'a str> for Response {
 impl From<Response> for HResponse {
     fn from(res: Response) -> HResponse {
         use futures::{Future, Stream};
-        let (head,body) = res.into_inner().into_parts();
+        let (head, body) = res.into_inner().into_parts();
 
         let b: ::hyper::Body = body.wait().into_inner();
         HResponse::new()
             .with_status(::hyper::StatusCode::Ok)
             .with_body(b)
+    }
+}
+
+impl From<::http::StatusCode> for Response {
+    fn from(status: ::http::StatusCode) -> Self {
+        let mut builder = HttpResponse::builder();
+        builder.status(status);
+        let inner = builder.body("".into()).unwrap();
+
+        Response { inner }
     }
 }
