@@ -76,3 +76,9 @@ impl From<String> for HttpError {
         HttpError { status: ::http::status::INTERNAL_SERVER_ERROR, headers: HeaderMap::new(), msg: msg }
     }
 }
+
+impl From<::http::Error> for HttpError {
+    fn from(error: ::http::Error) -> Self {
+        HttpError::internal_server_error(error.description())
+    }
+}

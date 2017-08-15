@@ -12,6 +12,7 @@ impl Response {
     pub fn builder() -> ResponseBuilder {
         ResponseBuilder::default()
     }
+
     pub fn moved_permanent<'a, T: AsRef<&'a str>>(url: T) -> Result<Response, ::http::Error> {
         use std::str::FromStr;
         let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
@@ -20,9 +21,11 @@ impl Response {
             .header(::http::header::LOCATION, value)
             .build()
     }
+
     pub fn status(&self) -> StatusCode {
         self.inner.status()
     }
+
     pub fn headers(&self) -> &HeaderMap<HeaderValue> {
         self.inner.headers()
     }
