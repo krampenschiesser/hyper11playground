@@ -54,6 +54,11 @@ impl ResponseBuilder {
         self.header.insert(name.into(), value.into());
         self
     }
+    pub fn header_str_value<N: Into<HeaderName>, K: Into<&str>>(mut self, name: N, value: K) -> Result<Self,::error::HttpError> {
+        let value = HeaderValue::from_str(value.into())?;
+        self.header.insert(name.into(), value);
+        self
+    }
     pub fn body<T: Into<::request::RequestBody>>(mut self, body: T) -> Self {
         self.body = body.into();
         self
