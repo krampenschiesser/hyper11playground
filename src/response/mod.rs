@@ -15,10 +15,10 @@ impl Response {
     pub fn moved_permanent<'a, T: AsRef<&'a str>>(url: T) -> Result<Response, ::http::Error> {
         use std::str::FromStr;
         let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
-        let mut builder = Response::builder();
-        builder.status(::http::status::MOVED_PERMANENTLY);
-        builder.header(::http::header::LOCATION, value);
-        builder.build()
+        Response::builder()
+            .status(::http::status::MOVED_PERMANENTLY)
+            .header(::http::header::LOCATION, value)
+            .build()
     }
     pub fn status(&self) -> StatusCode {
         self.inner.status()
@@ -43,15 +43,15 @@ pub struct ResponseBuilder {
 }
 
 impl ResponseBuilder {
-    pub fn status<T: Into<StatusCode>>(&mut self, status: T) -> &mut Self {
+    pub fn status<T: Into<StatusCode>>(mut self, status: T) -> Self {
         self.status = status.into();
         self
     }
-    pub fn header<N: Into<HeaderName>, K: Into<HeaderValue>>(&mut self, name: N, value: K) -> &mut Self {
+    pub fn header<N: Into<HeaderName>, K: Into<HeaderValue>>(mut self, name: N, value: K) -> Self {
         self.header.insert(name.into(), value.into());
         self
     }
-    pub fn body<T: Into<::request::RequestBody>>(&mut self, body: T) -> &mut Self {
+    pub fn body<T: Into<::request::RequestBody>>(mut self, body: T) -> Self {
         self.body = body.into();
         self
     }
