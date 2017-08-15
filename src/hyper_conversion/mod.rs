@@ -14,19 +14,6 @@ pub fn convert_method(method: &::hyper::Method) -> ::http::Method {
     }
 }
 
-pub fn convert_headers(headers: &::hyper::Headers) -> ::http::HeaderMap<String> {
-    use std::convert::TryFrom;
-
-    let mut ret = ::http::HeaderMap::new();
-    for item in headers.iter() {
-        if let Ok(key) = ::http::header::HeaderName::try_from(item.name()) {
-            let value: String = item.value_string();
-            ret.insert(key, value);
-        }
-    }
-    ret
-}
-
 pub fn convert_headers_to_hyper(headers: &::http::HeaderMap<String>) -> ::hyper::Headers {
     let mut ret = ::hyper::Headers::new();
     for (key, value) in headers.iter() {

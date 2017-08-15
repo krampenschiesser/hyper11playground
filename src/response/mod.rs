@@ -1,5 +1,4 @@
 use hyper::Response as HResponse;
-use hyper::Body as HBody;
 use http::Response as HttpResponse;
 use std::ops::Deref;
 use http::{StatusCode, HeaderMap, status};

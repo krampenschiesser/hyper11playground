@@ -31,7 +31,7 @@ pub mod response;
 pub mod handler;
 pub mod error;
 pub mod prelude;
-
+pub mod traits;
 
 #[cfg(test)]
 mod tests {
