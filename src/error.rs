@@ -29,26 +29,25 @@ impl ::std::error::Error for HttpError {
 impl HttpError {
     pub fn not_found<S: Into<String>>(resource: Option<S>) -> Self {
         let msg: String = resource.map(|x| x.into()).unwrap_or("".into());
-        HttpError {
-            status: status::NOT_FOUND,
-            msg: msg,
-            headers: HeaderMap::new()
-        }
+        Self::internal_error(status::NOT_FOUND, msg)
     }
 
     pub fn bad_request<S: Into<String>>(resource: S) -> Self {
-        let msg: String = resource.into();
-        HttpError {
-            status: status::BAD_REQUEST,
-            msg: msg,
-            headers: HeaderMap::new()
-        }
+        Self::internal_error(status::BAD_REQUEST, resource)
     }
 
     pub fn unauthorized<S: Into<String>>(resource: S) -> Self {
-        let msg: String = resource.into();
+        Self::internal_error(status::UNAUTHORIZED, resource)
+    }
+
+    pub fn internal_server_error<S: Into<String>>(resource: S) -> Self {
+        Self::internal_error(status::INTERNAL_SERVER_ERROR, resource)
+    }
+
+    fn internal_error<S: Into<String>>(status: StatusCode, msg: S) -> Self {
+        let msg: String = msg.into();
         HttpError {
-            status: status::UNAUTHORIZED,
+            status: status,
             msg: msg,
             headers: HeaderMap::new()
         }
