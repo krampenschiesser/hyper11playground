@@ -1,5 +1,6 @@
 use http::{StatusCode, HeaderMap};
 use http::status;
+use http::header::HeaderValue;
 //
 //pub trait HttpError: Sized {
 //    fn get_status(&self) -> u16;
@@ -11,7 +12,7 @@ use http::status;
 pub struct HttpError {
     status: StatusCode,
     msg: String,
-    headers: HeaderMap<String>,
+    headers: HeaderMap<HeaderValue>,
 }
 
 impl ::std::fmt::Display for HttpError {

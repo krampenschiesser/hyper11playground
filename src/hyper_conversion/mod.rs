@@ -14,10 +14,10 @@ pub fn convert_method(method: &::hyper::Method) -> ::http::Method {
     }
 }
 
-pub fn convert_headers_to_hyper(headers: &::http::HeaderMap<String>) -> ::hyper::Headers {
+pub fn convert_headers_to_hyper(headers: &::http::HeaderMap<::http::header::HeaderValue>) -> ::hyper::Headers {
     let mut ret = ::hyper::Headers::new();
     for (key, value) in headers.iter() {
-        ret.set_raw(String::from(key.as_str()), value.clone());
+        ret.set_raw(String::from(key.as_str()), value.as_bytes());
     }
     ret
 }
