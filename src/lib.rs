@@ -19,6 +19,10 @@ extern crate tokio_proto;
 extern crate state;
 
 extern crate http;
+
+extern crate tokio_io;
+extern crate bytes;
+extern crate httparse;
 //#[cfg(debug_assertions)]
 //extern crate reqwest;
 

@@ -47,7 +47,7 @@ impl<'r> Default for Request<'r> {
 
 impl<'r> Request<'r> {
     pub fn from_hyper(hyper_req: ::hyper::Request, state: &'r Container, params: Params) -> Self {
-//        let headers = ::hyper_conversion::convert_headers(hyper_req.headers());
+        //        let headers = ::hyper_conversion::convert_headers(hyper_req.headers());
         let remote_addr = hyper_req.remote_addr();
 
         let query = Request::parse_query(hyper_req.query());
@@ -122,6 +122,23 @@ impl<'r> Request<'r> {
     pub fn set_state<T: Send + Sync + 'static>(&mut self, state: &'r Container) {
         self.state = StateHolder::Some(state);
     }
+
+    pub fn header(&self, name: &::http::header::HeaderName) -> Option<&str> {
+        let o = self.inner.headers().get(name);
+        if let Some(value) = o {
+            match value.to_str() {
+                Ok(str) => Some(str),
+                Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+//    pub fn body_as_str(&self) -> &str {
+//        use futures::Stream;
+//        let v: Vec<u8> = self.inner.body().collect::Vec<u8>();
+//    }
 }
 
 impl<'r> Deref for Request<'r> {

@@ -11,7 +11,7 @@ use state::Container;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 mod protocol;
-
+mod nohyper;
 use self::protocol::Protocol;
 
 pub struct Server {
