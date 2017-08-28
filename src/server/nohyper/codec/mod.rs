@@ -30,8 +30,8 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for Http {
 
 #[derive(Copy, Clone, Debug)]
 pub struct HttpCodecCfg {
-    max_reuest_header_len: u16,
-    max_body_size: u16,
+    max_reuest_header_len: usize,
+    max_body_size: usize,
     //    max_headers: u16,
 }
 
@@ -48,10 +48,9 @@ pub struct HttpCodec {
 
 pub enum DecodingResult {
     RouteNotFound,
-    BodyMissing,
     HeaderTooLarge,
     BodyTooLarge,
-    Ok(Request<Option<Vec<u8>>>, Box<Handler>),
+    Ok((Request<Option<Vec<u8>>>, Arc<Box<Handler>>)),
 }
 
 
@@ -62,43 +61,56 @@ impl Decoder for HttpCodec {
     fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<DecodingResult>> {
         let result = parse(self, buf)?;
         if let None = result {
+            if buf.len() > self.config.max_reuest_header_len {
+                buf.clear();
+                return Ok(Some(DecodingResult::HeaderTooLarge));
+            }
             return Ok(None);
         }
-        let (method, uri, version, header_map, body_complete) = result.unwrap();
+        let (method, uri, version, header_map, body_complete, content_start, content_length) = result.unwrap();
+        if content_length > self.config.max_body_size {
+            buf.clear();
+            return Ok(Some(DecodingResult::BodyTooLarge));
+        }
 
         let o = self.router.resolve(&method, uri.path());
-
-
-        //       c let data = buf.split_to(total_length);
-
-
-        //            Request::builder()
-        //                .
-        //        (toslice(r.method.unwrap().as_bytes()),
-        //         toslice(r.path.unwrap().as_bytes()),
-        //         r.version.unwrap(),
-        //         r.headers
-        //             .iter()
-        //             .map(|h| (toslice(h.name.as_bytes()), toslice(h.value)))
-        //             .collect(),
-        //         amt)
-        Err(::std::io::Error::new(io::ErrorKind::Other, "test"))
-        //        Ok(Request {
-        //            method: method,
-        //            path: path,
-        //            version: version,
-        //            headers: headers,
-        //            data: buf.split_to(amt),
-        //        }.into())
+        if let Some((route, params)) = o {
+            if body_complete {
+                let body = get_body(buf, content_start, content_length);
+                let mut b = RequestBuilder::new();
+                b.method(method);
+                b.uri(uri);
+                b.version(version);
+                let mut request = b.body(body).map_err(|e| io_error(e))?;
+                *request.headers_mut() = header_map;
+                let decoding_result = DecodingResult::Ok((request, route.callback.clone()));
+                Ok(Some(decoding_result))
+            } else {
+                Ok(None)
+            }
+        } else {
+            buf.clear();
+            Ok(Some(DecodingResult::RouteNotFound))
+        }
     }
 }
 
-fn parse(codec: &mut HttpCodec, buf: &mut BytesMut) -> Result<Option<(Method, Uri, Version, HeaderMap<HeaderValue>, bool)>, ::std::io::Error> {
+fn get_body(buf: &mut BytesMut, content_start: usize, content_length: usize) -> Option<Vec<u8>> {
+    if content_length > 0 {
+        let split = buf.split_off(content_start);
+        let v: Vec<u8> = Vec::from(split.as_ref());
+        Some(v)
+    } else {
+        None
+    }
+}
+
+fn parse(codec: &mut HttpCodec, buf: &mut BytesMut) -> Result<Option<(Method, Uri, Version, HeaderMap<HeaderValue>, bool, usize, usize)>, ::std::io::Error> {
     use httparse;
     use httparse::Header;
 
     let mut headers: Vec<Header> = Vec::with_capacity(32);
-    let mut header_ref = headers.as_mut();
+    let header_ref = headers.as_mut();
     let mut r = httparse::Request::new(header_ref);
     let status = r.parse(buf.as_ref()).map_err(|e| {
         let msg = format!("failed to parse http request: {:?}", e);
@@ -123,7 +135,7 @@ fn parse(codec: &mut HttpCodec, buf: &mut BytesMut) -> Result<Option<(Method, Ur
     let version = parse_version(&r);
     let headers = translate_headers(&r)?;
 
-    Ok(Some((method, uri, version, headers, buf.len() == total_length)))
+    Ok(Some((method, uri, version, headers, buf.len() == total_length, amt, content_length)))
 }
 
 fn io_error<T: ::std::fmt::Debug>(t: T) -> ::std::io::Error {
@@ -182,4 +194,23 @@ impl Encoder for HttpCodec {
         //        response::encode(msg, buf);
         Ok(())
     }
+}
+
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_header_too_long() {}
+
+    fn test_body_too_long() {}
+
+    fn test_body_missing() {}
+
+    fn test_route_not_found() {}
+
+    fn test_parsing_errors() {}
+
+    fn test_wait_for_body() {}
+
+    fn test_wait_for_header() {}
 }

@@ -4,6 +4,7 @@ use handler::Handler;
 use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub struct Router {
     routes: HashMap<Method, Recognizer<Route>>,
@@ -18,7 +19,7 @@ impl Router {
         let path = path.into();
         let route = Route {
             path: path.clone(),
-            callback: Box::new(h),
+            callback: Arc::new(Box::new(h)),
             method: method.clone()
         };
 
@@ -67,7 +68,7 @@ impl Router {
 pub struct Route {
     pub path: String,
     pub method: Method,
-    pub callback: Box<Handler>
+    pub callback: Arc<Box<Handler>>
 }
 
 impl Route {
