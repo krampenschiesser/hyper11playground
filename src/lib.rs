@@ -23,6 +23,9 @@ extern crate http;
 extern crate tokio_io;
 extern crate bytes;
 extern crate httparse;
+
+#[cfg(test)]
+extern crate spectral;
 //#[cfg(debug_assertions)]
 //extern crate reqwest;
 

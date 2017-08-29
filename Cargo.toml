@@ -32,3 +32,4 @@ http = { git = 'https://github.com/carllerche/http' }
 reqwest = "0.7.1" #should be in dev dependencies
 [dev-dependencies]
 env_logger = "0.4.3"
+spectral = "0.6.0"

@@ -32,18 +32,24 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for Http {
 pub struct HttpCodecCfg {
     max_reuest_header_len: usize,
     max_body_size: usize,
-    //    max_headers: u16,
+    max_headers: usize,
 }
 
 impl Default for HttpCodecCfg {
     fn default() -> Self {
-        HttpCodecCfg { max_reuest_header_len: 8000, max_body_size: 20_000_000 }//, max_headers: 32 }
+        HttpCodecCfg { max_reuest_header_len: 8000, max_body_size: 20_000_000, max_headers: 64 }
     }
 }
 
 pub struct HttpCodec {
     config: HttpCodecCfg,
     router: Arc<Router>,
+}
+
+impl Default for HttpCodec {
+    fn default() -> Self {
+        HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(Router::new()) }
+    }
 }
 
 pub enum DecodingResult {
@@ -53,6 +59,19 @@ pub enum DecodingResult {
     Ok((Request<Option<Vec<u8>>>, Arc<Box<Handler>>)),
 }
 
+
+impl ::std::fmt::Debug for DecodingResult {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        use self::DecodingResult::*;
+
+        match *self {
+            RouteNotFound => write!(f, "RouteNotFound"),
+            HeaderTooLarge => write!(f, "HeaderTooLarge"),
+            BodyTooLarge => write!(f, "BodyTooLarge"),
+            Ok(_) => write!(f, "Ok(...)"),
+        }
+    }
+}
 
 impl Decoder for HttpCodec {
     type Item = DecodingResult;
@@ -64,8 +83,9 @@ impl Decoder for HttpCodec {
             if buf.len() > self.config.max_reuest_header_len {
                 buf.clear();
                 return Ok(Some(DecodingResult::HeaderTooLarge));
+            } else {
+                return Ok(None);
             }
-            return Ok(None);
         }
         let (method, uri, version, header_map, body_complete, content_start, content_length) = result.unwrap();
         if content_length > self.config.max_body_size {
@@ -109,16 +129,15 @@ fn parse(codec: &mut HttpCodec, buf: &mut BytesMut) -> Result<Option<(Method, Ur
     use httparse;
     use httparse::Header;
 
-    let mut headers: Vec<Header> = Vec::with_capacity(32);
-    let header_ref = headers.as_mut();
-    let mut r = httparse::Request::new(header_ref);
+    let mut headers = vec![::httparse::EMPTY_HEADER; codec.config.max_headers];//fixme don't allocate, immediately but grow on demand by handling parse error
+    let mut r = httparse::Request::new(headers.as_mut());
     let status = r.parse(buf.as_ref()).map_err(|e| {
         let msg = format!("failed to parse http request: {:?}", e);
         ::std::io::Error::new(io::ErrorKind::Other, msg)
     })?;
     let amt = match status {
         httparse::Status::Complete(amt) => amt,
-        httparse::Status::Partial => return Ok(None),
+        httparse::Status::Partial => return Ok(None)
     };
 
     let toslice = |a: &[u8]| {
@@ -199,18 +218,102 @@ impl Encoder for HttpCodec {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use spectral::prelude::*;
+
+    const RAW_GET: &'static [u8] = b"GET / HTTP/1.0\r\n";
+    const RAW_HEADER: &'static [u8] = b"Host: Nirvana\r\nConnection: keep-alive\r\n";
+
+    fn handle(_: &mut ::request::Request) -> Result<::response::Response, ::error::HttpError> {
+        Ok("".into())
+    }
+
     #[test]
-    fn test_header_too_long() {}
+    fn test_header_too_long_incomplete() {
+        let mut bytes = BytesMut::from(RAW_GET.as_ref());
+        bytes.extend_from_slice(RAW_HEADER.as_ref());
 
-    fn test_body_too_long() {}
+        let config = HttpCodecCfg { max_reuest_header_len: 30, max_body_size: 10, max_headers: 10 };
+        let r = parse(bytes, config);
 
-    fn test_body_missing() {}
+        match r {
+            DecodingResult::HeaderTooLarge => return,
+            r => panic!("wrong return value {:?}", r)
+        }
+    }
 
-    fn test_route_not_found() {}
 
-    fn test_parsing_errors() {}
+    #[test]
+    fn test_body_too_long() {
+        let mut bytes = BytesMut::from(RAW_GET.as_ref());
+        bytes.extend_from_slice(RAW_HEADER.as_ref());
+        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
 
-    fn test_wait_for_body() {}
+        let config = HttpCodecCfg { max_reuest_header_len: 8000, max_body_size: 10, max_headers: 10 };
+        let r = parse(bytes, config);
 
-    fn test_wait_for_header() {}
+        match r {
+            DecodingResult::BodyTooLarge => return,
+            r => panic!("wrong return value {:?}", r)
+        }
+    }
+
+    fn parse(mut bytes: BytesMut, config: HttpCodecCfg) -> DecodingResult {
+        let router = Arc::new(Router::new());
+        let mut codec = HttpCodec { config, router };
+        let r = codec.decode(&mut bytes);
+        match r {
+            Ok(s) => match s {
+                Some(s) => s,
+                None => panic!("Decoder not ready and waiting -> but should abort"),
+            },
+            Err(e) => panic!("Got error from decoder {:?}", e),
+        }
+    }
+
+
+    #[test]
+    fn test_body_missing() {
+        let mut bytes = BytesMut::from(RAW_GET.as_ref());
+        bytes.extend_from_slice(RAW_HEADER.as_ref());
+        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
+
+        let mut r = Router::new();
+        r.get("/", handle);
+        let cfg = HttpCodecCfg::default();
+        let mut codec = HttpCodec { config: cfg, router: Arc::new(r) };
+        let r = codec.decode(&mut bytes);
+        assert_that(&r).is_ok();
+        assert_that(&r.unwrap()).is_none();
+    }
+
+    #[test]
+    fn test_route_not_found() {
+        let mut bytes = BytesMut::from(RAW_GET.as_ref());
+        bytes.extend_from_slice(RAW_HEADER.as_ref());
+        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
+
+        let mut codec = HttpCodec::default();
+        let r = codec.decode(&mut bytes);
+        assert_that(&r).is_ok();
+        let r = r.unwrap();
+        assert_that(&r).is_some();
+        let r = r.unwrap();
+
+        match r {
+            DecodingResult::RouteNotFound => return,
+            r => panic!("wrong return value {:?}", r)
+        }
+    }
+
+    #[test]
+    fn test_wait_for_header() {
+        let mut bytes = BytesMut::from(RAW_GET.as_ref());
+        bytes.extend_from_slice(RAW_HEADER.as_ref());
+
+        let mut codec = HttpCodec::default();
+        let r = codec.decode(&mut bytes);
+        assert_that(&r).is_ok();
+        assert_that(&r.unwrap()).is_none();
+    }
 }
