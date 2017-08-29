@@ -8,7 +8,6 @@ unstable = ["clippy"]
 
 [dependencies]
 clippy = {version = "*", optional = true}
-hyper = "0.11"
 
 tokio-tls = {version="0.1", features = ["tokio-proto"]}
 native-tls = "0.1"

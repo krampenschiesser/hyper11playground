@@ -4,10 +4,8 @@ use http::Request as HttpRequest;
 use std::ops::Deref;
 
 mod params;
-mod body;
 
 pub use self::params::Params;
-pub use self::body::RequestBody;
 
 
 pub struct Request<'r> {
@@ -46,24 +44,8 @@ impl<'r> Default for Request<'r> {
 
 
 impl<'r> Request<'r> {
-    pub fn from_hyper(hyper_req: ::hyper::Request, state: &'r Container, params: Params) -> Self {
-        //        let headers = ::hyper_conversion::convert_headers(hyper_req.headers());
-        let remote_addr = hyper_req.remote_addr();
-
-        let query = Request::parse_query(hyper_req.query());
-        let uri = hyper_req.uri().as_ref().parse::<::http::Uri>().unwrap();// we trust hyper
-
-        let method = ::hyper_conversion::convert_method(hyper_req.method());
-
-        let mut builder = HttpRequest::builder();
-        builder.uri(uri);
-        builder.method(method);
-        for item in hyper_req.headers().iter() {
-            builder.header(item.name(), item.value_string().as_str());
-        }
-        let body = RequestBody::from(hyper_req.body());
-        let inner = builder.body(body).unwrap();//fixme do exception handling
-        Request { inner, params, state: StateHolder::Some(state), query, remote_addr }
+    pub fn new(req: ::http::Request<Option<Vec<u8>>>, state: &'r Container, params: Params) -> Self {
+        Request { inner: req, params, state: StateHolder::Some(state), query, remote_addr: None }
     }
 
     pub fn param(&self, name: &str) -> Option<&str> {
@@ -135,10 +117,10 @@ impl<'r> Request<'r> {
         }
     }
 
-//    pub fn body_as_str(&self) -> &str {
-//        use futures::Stream;
-//        let v: Vec<u8> = self.inner.body().collect::Vec<u8>();
-//    }
+    //    pub fn body_as_str(&self) -> &str {
+    //        use futures::Stream;
+    //        let v: Vec<u8> = self.inner.body().collect::Vec<u8>();
+    //    }
 }
 
 impl<'r> Deref for Request<'r> {

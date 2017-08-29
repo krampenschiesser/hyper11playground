@@ -117,7 +117,7 @@ impl Service for InternalServer {
                 Some((route, params)) => {
                     let res = self.handle_route(req, route, params.into());
                     match res {
-                        Ok(resp) => HResponse::from(resp),
+                        Ok(resp) => HResponse::from(::error::HttpError::bad_request("".into())),
                         Err(err) => HResponse::from(err)
                     }
                 }

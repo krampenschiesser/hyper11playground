@@ -1,11 +1,10 @@
-use hyper::Response as HResponse;
 use http::Response as HttpResponse;
 use std::ops::Deref;
 use http::{StatusCode, HeaderMap, status};
 use http::header::{HeaderValue, HeaderName};
 
 pub struct Response {
-    inner: HttpResponse<::request::RequestBody>,
+    inner: HttpResponse<Option<Vec<u8>>>,
 }
 
 impl Response {
@@ -30,18 +29,18 @@ impl Response {
         self.inner.headers()
     }
 
-    pub fn body(&self) -> &::request::RequestBody {
+    pub fn body(&self) -> &Option<Vec<u8>> {
         self.inner.body()
     }
 
-    pub fn into_inner(self) -> HttpResponse<::request::RequestBody> {
+    pub fn into_inner(self) -> HttpResponse<Option<Vec<u8>>> {
         self.inner
     }
 }
 
 pub struct ResponseBuilder {
     status: StatusCode,
-    body: ::request::RequestBody,
+    body: Option<Vec<u8>>,
     header: HeaderMap<HeaderValue>,
 }
 
@@ -50,6 +49,12 @@ impl ResponseBuilder {
         self.status = status.into();
         self
     }
+
+    pub fn header_map(mut self, map: HeaderMap) -> Self {
+        self.header = map;
+        self
+    }
+
     pub fn header<N: Into<HeaderName>, K: Into<HeaderValue>>(mut self, name: N, value: K) -> Self {
         self.header.insert(name.into(), value.into());
         self
@@ -59,8 +64,8 @@ impl ResponseBuilder {
         self.header.insert(name.into(), value);
         Ok(self)
     }
-    pub fn body<T: Into<::request::RequestBody>>(mut self, body: T) -> Self {
-        self.body = body.into();
+    pub fn body<T: Into<Vec<u8>>>(mut self, body: T) -> Self {
+        self.body = Some(body.into());
         self
     }
 
@@ -75,12 +80,12 @@ impl ResponseBuilder {
 
 impl Default for ResponseBuilder {
     fn default() -> Self {
-        ResponseBuilder { status: ::http::status::OK, body: "".into(), header: HeaderMap::new() }
+        ResponseBuilder { status: ::http::status::OK, body: None, header: HeaderMap::new() }
     }
 }
 
 impl Deref for Response {
-    type Target = HttpResponse<::request::RequestBody>;
+    type Target = HttpResponse<Option<Vec<u8>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -91,7 +96,7 @@ impl From<String> for Response {
     fn from(val: String) -> Self {
         let mut builder = HttpResponse::builder();
         builder.status(status::OK);
-        let x = builder.body(val.into()).unwrap(); // in the code only Ok is used
+        let x = builder.body(Some(val.into())).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
 }
@@ -100,21 +105,9 @@ impl<'a> From<&'a str> for Response {
     fn from(val: &'a str) -> Self {
         let mut builder = HttpResponse::builder();
         builder.status(status::OK);
-        let body: ::request::RequestBody = val.to_string().into();
+        let body: Option<Vec<u8>> = Some(val.to_string().into());
         let x: HttpResponse<::request::RequestBody> = builder.body(body).unwrap(); // in the code only Ok is used
         Response { inner: x }
-    }
-}
-
-impl From<Response> for HResponse {
-    fn from(res: Response) -> HResponse {
-        use futures::{Future, Stream};
-        let (head, body) = res.into_inner().into_parts();
-
-        let b: ::hyper::Body = body.wait().into_inner();
-        HResponse::new()
-            .with_status(::hyper::StatusCode::Ok)
-            .with_body(b)
     }
 }
 
@@ -122,7 +115,7 @@ impl From<::http::StatusCode> for Response {
     fn from(status: ::http::StatusCode) -> Self {
         let mut builder = HttpResponse::builder();
         builder.status(status);
-        let inner = builder.body("".into()).unwrap();
+        let inner = builder.body(None).unwrap();
 
         Response { inner }
     }

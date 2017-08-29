@@ -1,6 +1,8 @@
 use http::{StatusCode, HeaderMap};
 use http::status;
 use http::header::HeaderValue;
+
+use ::response::Response;
 //
 //pub trait HttpError: Sized {
 //    fn get_status(&self) -> u16;
@@ -55,10 +57,11 @@ impl HttpError {
     }
 }
 
-impl From<HttpError> for ::hyper::Response {
-    fn from(err: HttpError) -> ::hyper::Response {
-        use hyper::{Response, Body};
+impl From<HttpError> for Response {
+    fn from(err: HttpError) -> Response  {
+    use response::ResponseBuilder;
 
+        ResponseBuilder::
         Response::new()
             .with_status(::hyper_conversion::convert_status_to_hyper(err.status))
             .with_body(Body::from(err.msg))
