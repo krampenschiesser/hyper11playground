@@ -124,7 +124,7 @@ impl<'r> Request<'r> {
 }
 
 impl<'r> Deref for Request<'r> {
-    type Target = HttpRequest<RequestBody>;
+    type Target = HttpRequest<Option<Vec<u8>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

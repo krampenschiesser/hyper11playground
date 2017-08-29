@@ -29,7 +29,6 @@ extern crate spectral;
 //extern crate reqwest;
 
 
-mod hyper_conversion;
 pub mod server;
 pub mod router;
 pub mod request;

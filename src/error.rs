@@ -61,11 +61,7 @@ impl From<HttpError> for Response {
     fn from(err: HttpError) -> Response  {
     use response::ResponseBuilder;
 
-        ResponseBuilder::
-        Response::new()
-            .with_status(::hyper_conversion::convert_status_to_hyper(err.status))
-            .with_body(Body::from(err.msg))
-            .with_headers(::hyper_conversion::convert_headers_to_hyper(&err.headers))
+        ResponseBuilder::header_map(err.headers).status(err.status).body(Some(err.msg.into())).build()
     }
 }
 

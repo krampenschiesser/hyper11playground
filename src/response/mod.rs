@@ -106,7 +106,7 @@ impl<'a> From<&'a str> for Response {
         let mut builder = HttpResponse::builder();
         builder.status(status::OK);
         let body: Option<Vec<u8>> = Some(val.to_string().into());
-        let x: HttpResponse<::request::RequestBody> = builder.body(body).unwrap(); // in the code only Ok is used
+        let x: HttpResponse<Option<Vec<u8>>> = builder.body(body).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
 }
