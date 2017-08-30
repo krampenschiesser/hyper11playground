@@ -8,8 +8,10 @@ mod params;
 pub use self::params::Params;
 
 
+pub type Body = Option<Vec<u8>>;
+
 pub struct Request<'r> {
-    inner: HttpRequest<RequestBody>,
+    inner: HttpRequest<Body>,
     state: StateHolder<'r>,
     params: Params,
     query: HashMap<String, Vec<String>>,
@@ -44,7 +46,8 @@ impl<'r> Default for Request<'r> {
 
 
 impl<'r> Request<'r> {
-    pub fn new(req: ::http::Request<Option<Vec<u8>>>, state: &'r Container, params: Params) -> Self {
+    pub fn new(req: HttpRequest<Body>, state: &'r Container, params: Params) -> Self {
+        let query = Request::parse_query(req.uri().query());
         Request { inner: req, params, state: StateHolder::Some(state), query, remote_addr: None }
     }
 
@@ -124,7 +127,7 @@ impl<'r> Request<'r> {
 }
 
 impl<'r> Deref for Request<'r> {
-    type Target = HttpRequest<Option<Vec<u8>>>;
+    type Target = HttpRequest<Body>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -134,16 +137,18 @@ impl<'r> Deref for Request<'r> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hyper::Request as HRequest;
-    use hyper::{Method, Uri};
     use super::Params;
     use std::str::FromStr;
+    use http::{Uri, Method, method};
 
     #[test]
     fn test_query_param() {
         let c = Container::new();
-        let hr = HRequest::new(Method::Get, Uri::from_str("/bla?hallo=welt&hallo=blubb").unwrap());
-        let req = Request::from_hyper(hr, &c, Params::new());
+        let mut r = HttpRequest::new(None);
+        *r.method_mut() = method::GET;
+        *r.uri_mut() = Uri::from_str("/bla?hallo=welt&hallo=blubb").unwrap();
+
+        let req = Request::new(r, &c, Params::new());
         assert_eq!("welt", req.query_first("hallo").unwrap());
         assert_eq!(None, req.query_first("ne"));
         assert_eq!(2, req.query("hallo").unwrap().len());

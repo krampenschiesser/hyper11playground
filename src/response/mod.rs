@@ -2,9 +2,10 @@ use http::Response as HttpResponse;
 use std::ops::Deref;
 use http::{StatusCode, HeaderMap, status};
 use http::header::{HeaderValue, HeaderName};
+use ::request::Body;
 
 pub struct Response {
-    inner: HttpResponse<Option<Vec<u8>>>,
+    inner: HttpResponse<Body>,
 }
 
 impl Response {
@@ -29,18 +30,18 @@ impl Response {
         self.inner.headers()
     }
 
-    pub fn body(&self) -> &Option<Vec<u8>> {
+    pub fn body(&self) -> &Body {
         self.inner.body()
     }
 
-    pub fn into_inner(self) -> HttpResponse<Option<Vec<u8>>> {
+    pub fn into_inner(self) -> HttpResponse<Body> {
         self.inner
     }
 }
 
 pub struct ResponseBuilder {
     status: StatusCode,
-    body: Option<Vec<u8>>,
+    body: Body,
     header: HeaderMap<HeaderValue>,
 }
 
@@ -85,7 +86,7 @@ impl Default for ResponseBuilder {
 }
 
 impl Deref for Response {
-    type Target = HttpResponse<Option<Vec<u8>>>;
+    type Target = HttpResponse<Body>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -105,8 +106,8 @@ impl<'a> From<&'a str> for Response {
     fn from(val: &'a str) -> Self {
         let mut builder = HttpResponse::builder();
         builder.status(status::OK);
-        let body: Option<Vec<u8>> = Some(val.to_string().into());
-        let x: HttpResponse<Option<Vec<u8>>> = builder.body(body).unwrap(); // in the code only Ok is used
+        let body: Body = Some(val.to_string().into());
+        let x: HttpResponse<Body> = builder.body(body).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
 }

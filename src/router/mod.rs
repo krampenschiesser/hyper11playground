@@ -1,10 +1,13 @@
 use http::Method;
+use http::Request as HttpRequest;
 use http::method;
 use handler::Handler;
 use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use ::request::Body;
 
 pub struct Router {
     routes: HashMap<Method, Recognizer<Route>>,
@@ -138,10 +141,18 @@ mod tests {
 
         let (route, _) = router.resolve(&GET, "/hello").unwrap();
         let ref handler = route.get_callback();
-        let req = ::hyper::Request::new(::hyper::Method::Get, ::hyper::Uri::default());
+
+        let mut req = request(::http::method::GET, ::http::Uri::default());
         let c = ::state::Container::new();
-        let mut r = Request::from_hyper(req, &c, Params::new());
+        let mut r = Request::new(req, &c, Params::new());
         (*handler).handle(&mut r).unwrap();
+    }
+
+    fn request(method: ::http::Method, uri: ::http::Uri) -> HttpRequest<Body> {
+        let mut req = ::http::Request::new(None);
+        *req.method_mut() = method;
+        *req.uri_mut() = uri;
+        req
     }
 
     #[test]

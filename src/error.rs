@@ -57,11 +57,20 @@ impl HttpError {
     }
 }
 
-impl From<HttpError> for Response {
-    fn from(err: HttpError) -> Response  {
-    use response::ResponseBuilder;
+impl From<HttpError> for ::http::Response<::request::Body> {
+    fn from(err: HttpError) -> ::http::Response<::request::Body> {
+        Response::from(err).into_inner()
+    }
+}
 
-        ResponseBuilder::header_map(err.headers).status(err.status).body(Some(err.msg.into())).build()
+impl From<HttpError> for Response {
+    fn from(err: HttpError) -> Response {
+        use response::ResponseBuilder;
+        let r = Response::builder().header_map(err.headers).status(err.status).body(err.msg.into_bytes()).build();
+        match r {
+            Ok(res) => res,
+            Err(e) => Response::builder().status(status::INTERNAL_SERVER_ERROR).body(format!("Error happened: {:?}", e).into_bytes()).build().unwrap()
+        }
     }
 }
 

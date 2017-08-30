@@ -11,14 +11,16 @@ use ::router::Router;
 use ::handler::Handler;
 use std::sync::Arc;
 
+use ::request::Body;
+
 pub struct Http {
-    router: Arc<Router>,
-    config: HttpCodecCfg,
+    pub router: Arc<Router>,
+    pub config: HttpCodecCfg,
 }
 
 impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for Http {
     type Request = DecodingResult;
-    type Response = Response<Option<Vec<u8>>>;
+    type Response = Response<Body>;
     type Transport = Framed<T, HttpCodec>;
     type BindTransport = io::Result<Framed<T, HttpCodec>>;
 
@@ -56,7 +58,7 @@ pub enum DecodingResult {
     RouteNotFound,
     HeaderTooLarge,
     BodyTooLarge,
-    Ok((Request<Option<Vec<u8>>>, Arc<Box<Handler>>)),
+    Ok((Request<Body>, Arc<Box<Handler>>, ::request::Params)),
 }
 
 
@@ -103,7 +105,7 @@ impl Decoder for HttpCodec {
                 b.version(version);
                 let mut request = b.body(body).map_err(|e| io_error(e))?;
                 *request.headers_mut() = header_map;
-                let decoding_result = DecodingResult::Ok((request, route.callback.clone()));
+                let decoding_result = DecodingResult::Ok((request, route.callback.clone(), params.into()));
                 Ok(Some(decoding_result))
             } else {
                 Ok(None)
@@ -115,7 +117,7 @@ impl Decoder for HttpCodec {
     }
 }
 
-fn get_body(buf: &mut BytesMut, content_start: usize, content_length: usize) -> Option<Vec<u8>> {
+fn get_body(buf: &mut BytesMut, content_start: usize, content_length: usize) -> Body {
     if content_length > 0 {
         let split = buf.split_off(content_start);
         let v: Vec<u8> = Vec::from(split.as_ref());
@@ -127,7 +129,6 @@ fn get_body(buf: &mut BytesMut, content_start: usize, content_length: usize) -> 
 
 fn parse(codec: &mut HttpCodec, buf: &mut BytesMut) -> Result<Option<(Method, Uri, Version, HeaderMap<HeaderValue>, bool, usize, usize)>, ::std::io::Error> {
     use httparse;
-    use httparse::Header;
 
     let mut headers = vec![::httparse::EMPTY_HEADER; codec.config.max_headers];//fixme don't allocate, immediately but grow on demand by handling parse error
     let mut r = httparse::Request::new(headers.as_mut());
@@ -206,10 +207,10 @@ fn translate_headers(req: &::httparse::Request) -> Result<::http::header::Header
 
 
 impl Encoder for HttpCodec {
-    type Item = Response<Option<Vec<u8>>>;
+    type Item = Response<Body>;
     type Error = io::Error;
 
-    fn encode(&mut self, msg: Response<Option<Vec<u8>>>, buf: &mut BytesMut) -> io::Result<()> {
+    fn encode(&mut self, msg: Response<Body>, buf: &mut BytesMut) -> io::Result<()> {
         //        response::encode(msg, buf);
         Ok(())
     }
