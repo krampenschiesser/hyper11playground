@@ -211,7 +211,6 @@ impl Encoder for HttpCodec {
 
         let status_line = format!("{:?} {} {}\r\n", msg.version(), msg.status().as_u16(), msg.status());
         buf.put(status_line.as_bytes());
-
         for (key, value) in msg.headers().iter() {
             let val: &[u8] = key.as_ref();
             buf.put(val);
@@ -220,12 +219,22 @@ impl Encoder for HttpCodec {
             buf.put(val);
             buf.put_slice(b"\r\n");
         }
+
+        let length_header = msg.headers().iter().find(|h| h.0 == ::http::header::CONTENT_LENGTH);
+
+        if let &Some(ref vec) = msg.body() {
+            if length_header.is_none() {
+                buf.put_slice(b"Content-Length: ");
+                buf.put(format!("{}", vec.len()).as_bytes());
+                buf.put_slice(b"\r\n");
+            }
+        }
         buf.put_slice(b"\r\n");
         if let &Some(ref vec) = msg.body() {
             buf.put(vec.as_slice());
         }
-        buf.put_slice(b"\r\n");
-        println!("got response buffer {}", String::from_utf8(Vec::from(buf.as_ref())).unwrap());
+        //        buf.put_slice(b"\r\n");
+        println!("got response buffer \n>>>\n {}\n>>>", String::from_utf8(Vec::from(buf.as_ref())).unwrap());
         Ok(())
     }
 }
@@ -235,8 +244,8 @@ mod tests {
     use super::*;
     use spectral::prelude::*;
 
-    const RAW_GET: &'static [u8] = b"GET / HTTP/1.0\r\n";
-    const RAW_HEADER: &'static [u8] = b"Host: Nirvana\r\nConnection: keep-alive\r\n";
+    const RAW_GET: &'static [u8] = b"GET / HTTP / 1.0\r\n";
+    const RAW_HEADER: &'static [u8] = b"Host: Nirvana\r\nConnection: keep - alive\r\n";
 
     fn handle(_: &mut ::request::Request) -> Result<::response::Response, ::error::HttpError> {
         Ok("".into())
@@ -252,7 +261,8 @@ mod tests {
 
         match r {
             DecodingResult::HeaderTooLarge => return,
-            r => panic!("wrong return value {:?}", r)
+            r => panic!("wrong return value { : ? };
+                ", r)
         }
     }
 
@@ -261,14 +271,15 @@ mod tests {
     fn test_body_too_long() {
         let mut bytes = BytesMut::from(RAW_GET.as_ref());
         bytes.extend_from_slice(RAW_HEADER.as_ref());
-        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
+        bytes.extend_from_slice(b"Content - Length: 30\r\n\r\n".as_ref());
 
         let config = HttpCodecCfg { max_reuest_header_len: 8000, max_body_size: 10, max_headers: 10 };
         let r = parse(bytes, config);
 
         match r {
             DecodingResult::BodyTooLarge => return,
-            r => panic!("wrong return value {:?}", r)
+            r => panic!("wrong return value { : ? };
+                ", r)
         }
     }
 
@@ -281,7 +292,7 @@ mod tests {
                 Some(s) => s,
                 None => panic!("Decoder not ready and waiting -> but should abort"),
             },
-            Err(e) => panic!("Got error from decoder {:?}", e),
+            Err(e) => panic!("Got error from decoder { : ? }", e),
         }
     }
 
@@ -290,10 +301,10 @@ mod tests {
     fn test_body_missing() {
         let mut bytes = BytesMut::from(RAW_GET.as_ref());
         bytes.extend_from_slice(RAW_HEADER.as_ref());
-        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
+        bytes.extend_from_slice(b"Content - Length: 30\r\n\r\n".as_ref());
 
         let mut r = Router::new();
-        r.get("/", handle);
+        r.get(" / ", handle);
         let cfg = HttpCodecCfg::default();
         let mut codec = HttpCodec { config: cfg, router: Arc::new(r) };
         let r = codec.decode(&mut bytes);
@@ -305,7 +316,7 @@ mod tests {
     fn test_route_not_found() {
         let mut bytes = BytesMut::from(RAW_GET.as_ref());
         bytes.extend_from_slice(RAW_HEADER.as_ref());
-        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
+        bytes.extend_from_slice(b"Content - Length: 30\r\n\r\n".as_ref());
 
         let mut codec = HttpCodec::default();
         let r = codec.decode(&mut bytes);
@@ -316,7 +327,8 @@ mod tests {
 
         match r {
             DecodingResult::RouteNotFound => return,
-            r => panic!("wrong return value {:?}", r)
+            r => panic!("wrong return value { : ? };
+                ", r)
         }
     }
 

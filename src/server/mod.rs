@@ -60,11 +60,11 @@ impl Service for InternalServer {
         debug!("Got request {:?}", req);
 
         let mut request = Request::new(req, &self.state, params);
-        //            debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
         let res = handler.handle(&mut request);
+
         match res {
             Ok(resp) => {
-                println!("Successfully handled {:?}", &resp);
+                println!("Successfully handled request. Response: {:?}", &resp);
                 future::ok(resp.into_inner())
             },
             Err(err) => {
@@ -72,8 +72,6 @@ impl Service for InternalServer {
                 future::ok(::response::Response::from(err).into_inner())
             }
         }
-        //        future::ok({
-        //        })
     }
 }
 
