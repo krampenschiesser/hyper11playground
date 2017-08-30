@@ -90,6 +90,8 @@ impl Decoder for HttpCodec {
             }
         }
         let (method, uri, version, header_map, body_complete, content_start, content_length) = result.unwrap();
+        buf.split_to(content_start);//remove part of buffer
+
         if content_length > self.config.max_body_size {
             buf.clear();
             return Ok(Some(DecodingResult::BodyTooLarge));
@@ -207,8 +209,6 @@ impl Encoder for HttpCodec {
     fn encode(&mut self, msg: Response<Body>, buf: &mut BytesMut) -> io::Result<()> {
         use bytes::BufMut;
 
-        println!("Got response");
-
         let status_line = format!("{:?} {} {}\r\n", msg.version(), msg.status().as_u16(), msg.status());
         buf.put(status_line.as_bytes());
         for (key, value) in msg.headers().iter() {
@@ -233,8 +233,6 @@ impl Encoder for HttpCodec {
         if let &Some(ref vec) = msg.body() {
             buf.put(vec.as_slice());
         }
-        //        buf.put_slice(b"\r\n");
-        println!("got response buffer \n>>>\n {}\n>>>", String::from_utf8(Vec::from(buf.as_ref())).unwrap());
         Ok(())
     }
 }
