@@ -65,7 +65,6 @@ impl From<HttpError> for ::http::Response<::request::Body> {
 
 impl From<HttpError> for Response {
     fn from(err: HttpError) -> Response {
-        use response::ResponseBuilder;
         let r = Response::builder().header_map(err.headers).status(err.status).body(err.msg.into_bytes()).build();
         match r {
             Ok(res) => res,

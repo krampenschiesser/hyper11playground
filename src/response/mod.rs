@@ -4,6 +4,7 @@ use http::{StatusCode, HeaderMap, status};
 use http::header::{HeaderValue, HeaderName};
 use ::request::Body;
 
+#[derive(Debug)]
 pub struct Response {
     inner: HttpResponse<Body>,
 }
@@ -14,7 +15,6 @@ impl Response {
     }
 
     pub fn moved_permanent<'a, T: AsRef<&'a str>>(url: T) -> Result<Response, ::error::HttpError> {
-        use std::str::FromStr;
         let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
         Response::builder()
             .status(::http::status::MOVED_PERMANENTLY)

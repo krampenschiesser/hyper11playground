@@ -141,12 +141,6 @@ fn parse(codec: &mut HttpCodec, buf: &mut BytesMut) -> Result<Option<(Method, Ur
         httparse::Status::Partial => return Ok(None)
     };
 
-    let toslice = |a: &[u8]| {
-        let start = a.as_ptr() as usize - buf.as_ptr() as usize;
-        assert!(start < buf.len());
-        (start, start + a.len())
-    };
-
     let content_length = get_content_length(&r);
     let total_length = amt + content_length;
 
@@ -211,11 +205,30 @@ impl Encoder for HttpCodec {
     type Error = io::Error;
 
     fn encode(&mut self, msg: Response<Body>, buf: &mut BytesMut) -> io::Result<()> {
-        //        response::encode(msg, buf);
+        use bytes::BufMut;
+
+        println!("Got response");
+
+        let status_line = format!("{:?} {} {}\r\n", msg.version(), msg.status().as_u16(), msg.status());
+        buf.put(status_line.as_bytes());
+
+        for (key, value) in msg.headers().iter() {
+            let val: &[u8] = key.as_ref();
+            buf.put(val);
+            buf.put_slice(b": ");
+            let val: &[u8] = value.as_ref();
+            buf.put(val);
+            buf.put_slice(b"\r\n");
+        }
+        buf.put_slice(b"\r\n");
+        if let &Some(ref vec) = msg.body() {
+            buf.put(vec.as_slice());
+        }
+        buf.put_slice(b"\r\n");
+        println!("got response buffer {}", String::from_utf8(Vec::from(buf.as_ref())).unwrap());
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {

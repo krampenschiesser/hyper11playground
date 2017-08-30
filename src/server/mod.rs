@@ -59,15 +59,21 @@ impl Service for InternalServer {
         };
         debug!("Got request {:?}", req);
 
-        future::ok({
-            let mut request = Request::new(req, &self.state, params);
-            //            debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
-            let res = handler.handle(&mut request);
-            match res {
-                Ok(resp) => resp.into_inner(),
-                Err(err) => ::response::Response::from(err).into_inner()
+        let mut request = Request::new(req, &self.state, params);
+        //            debug!("Found route {}:{} with params {:?}", route.method, route.path, &request.params());
+        let res = handler.handle(&mut request);
+        match res {
+            Ok(resp) => {
+                println!("Successfully handled {:?}", &resp);
+                future::ok(resp.into_inner())
+            },
+            Err(err) => {
+                println!("Failed to handle {:?}", &err);
+                future::ok(::response::Response::from(err).into_inner())
             }
-        })
+        }
+        //        future::ok({
+        //        })
     }
 }
 

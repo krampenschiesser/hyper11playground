@@ -1,6 +1,5 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
-#![feature(try_from)]
 
 extern crate url;
 extern crate route_recognizer;

@@ -10,6 +10,7 @@ pub use self::params::Params;
 
 pub type Body = Option<Vec<u8>>;
 
+#[derive(Debug)]
 pub struct Request<'r> {
     inner: HttpRequest<Body>,
     state: StateHolder<'r>,

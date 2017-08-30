@@ -1,13 +1,10 @@
 use http::Method;
-use http::Request as HttpRequest;
 use http::method;
 use handler::Handler;
 use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
 use std::collections::HashMap;
 use std::sync::Arc;
-
-use ::request::Body;
 
 pub struct Router {
     routes: HashMap<Method, Recognizer<Route>>,
@@ -87,7 +84,9 @@ impl Route {
 
 #[cfg(test)]
 mod tests {
+    use http::Request as HttpRequest;
     use super::*;
+    use ::request::Body;
     use ::prelude::*;
     use http::method::*;
     use std::sync::Mutex;
