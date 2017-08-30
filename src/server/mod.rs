@@ -57,21 +57,8 @@ impl Service for InternalServer {
             DecodingResult::RouteNotFound => return future::ok(HttpError::not_found(Some("Route not found")).into()),
             DecodingResult::Ok(res) => res
         };
-        debug!("Got request {:?}", req);
-
-        let mut request = Request::new(req, &self.state, params);
-        let res = handler.handle(&mut request);
-
-        match res {
-            Ok(resp) => {
-                println!("Successfully handled request. Response: {:?}", &resp);
-                future::ok(resp.into_inner())
-            },
-            Err(err) => {
-                println!("Failed to handle {:?}", &err);
-                future::ok(::response::Response::from(err).into_inner())
-            }
-        }
+        println!("Endless loop");
+        future::ok(HttpError::not_found(Some("Route not found")).into())
     }
 }
 
