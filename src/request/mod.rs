@@ -121,6 +121,20 @@ impl<'r> Request<'r> {
         }
     }
 
+    pub fn header_str(&self, name: &str) -> Option<&str> {
+        use http::header::HeaderName;
+        use std::str::FromStr;
+
+        let hname = match HeaderName::from_str(name) {
+            Ok(n) => n,
+            Err(e) => {
+                warn!("Could not parse header name {}: {:?}", name,e);
+                return None;
+            }
+        };
+        self.header(&hname)
+    }
+
     //    pub fn body_as_str(&self) -> &str {
     //        use futures::Stream;
     //        let v: Vec<u8> = self.inner.body().collect::Vec<u8>();
