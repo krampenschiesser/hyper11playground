@@ -86,7 +86,7 @@ impl Route {
 mod tests {
     use http::Request as HttpRequest;
     use super::*;
-    use ::request::Body;
+    use ::body::Body;
     use ::prelude::*;
     use http::method::*;
     use std::sync::Mutex;
@@ -148,7 +148,7 @@ mod tests {
     }
 
     fn request(method: ::http::Method, uri: ::http::Uri) -> HttpRequest<Body> {
-        let mut req = ::http::Request::new(None);
+        let mut req = ::http::Request::new(None.into());
         *req.method_mut() = method;
         *req.uri_mut() = uri;
         req

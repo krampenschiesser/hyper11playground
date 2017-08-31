@@ -2,13 +2,12 @@ use std::collections::HashMap;
 use state::Container;
 use http::Request as HttpRequest;
 use std::ops::Deref;
+use ::body::Body;
 
 mod params;
 
 pub use self::params::Params;
 
-
-pub type Body = Option<Vec<u8>>;
 
 #[derive(Debug)]
 pub struct Request<'r> {
@@ -23,6 +22,7 @@ enum StateHolder<'r> {
     None,
     Some(&'r Container)
 }
+
 
 impl<'r> ::std::fmt::Debug for StateHolder<'r> {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
@@ -145,7 +145,7 @@ mod tests {
     #[test]
     fn test_query_param() {
         let c = Container::new();
-        let mut r = HttpRequest::new(None);
+        let mut r = HttpRequest::new(::body::Body(None));
         *r.method_mut() = method::GET;
         *r.uri_mut() = Uri::from_str("/bla?hallo=welt&hallo=blubb").unwrap();
 

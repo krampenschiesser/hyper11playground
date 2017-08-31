@@ -57,8 +57,8 @@ impl HttpError {
     }
 }
 
-impl From<HttpError> for ::http::Response<::request::Body> {
-    fn from(err: HttpError) -> ::http::Response<::request::Body> {
+impl From<HttpError> for ::http::Response<::body::Body> {
+    fn from(err: HttpError) -> ::http::Response<::body::Body> {
         Response::from(err).into_inner()
     }
 }

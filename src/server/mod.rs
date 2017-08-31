@@ -3,13 +3,12 @@ use http::Response;
 use futures::future;
 use tokio_service::Service;
 use tokio_proto::TcpServer;
-use ::request::{Request, Body};
+use ::request::{Request};
+use ::body::Body;
 use ::router::Router;
 use state::Container;
 use std::sync::atomic::{AtomicBool, Ordering};
 use native_tls::Pkcs12;
-
-
 use ::error::HttpError;
 use std::net::SocketAddr;
 use std::sync::Arc;

@@ -34,6 +34,7 @@ pub mod handler;
 pub mod error;
 pub mod prelude;
 pub mod traits;
+pub mod body;
 
 #[cfg(test)]
 mod tests {

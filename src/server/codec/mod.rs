@@ -11,7 +11,8 @@ use ::router::Router;
 use ::handler::Handler;
 use std::sync::Arc;
 
-use ::request::{Body, Params};
+use ::body::Body;
+use ::request::Params;
 
 pub struct Http {
     pub router: Arc<Router>,
@@ -58,7 +59,7 @@ struct PartialResultWithBody {
 
 impl PartialResultWithBody {
     fn append_buf(&mut self, buf: &mut BytesMut) -> bool {
-        if let &mut Some(ref mut body) = self.request.body_mut() {
+        if let &mut Some(ref mut body) = self.request.body_mut().inner_mut() {
             let buf_len = buf.len();
             let current_length = body.len();
             let remaining_length = self.body_length - current_length;
@@ -153,9 +154,9 @@ impl Decoder for HttpCodec {
                 let max_init_content = 4000;
                 let capacity = ::std::cmp::min(body_length, max_init_content);
                 let vec = Vec::with_capacity(capacity);
-                b.body(Some(vec)).map_err(|e| io_error(e))?
+                b.body(Body(Some(vec))).map_err(|e| io_error(e))?
             } else {
-                b.body(None).map_err(|e| io_error(e))?
+                b.body(Body(None)).map_err(|e| io_error(e))?
             };
 
             if body_complete {
@@ -179,9 +180,9 @@ fn get_body(buf: &mut BytesMut, content_start: usize, content_length: usize) -> 
     if content_length > 0 {
         let split = buf.split_off(content_start);
         let v: Vec<u8> = Vec::from(split.as_ref());
-        Some(v)
+        Body(Some(v))
     } else {
-        None
+        Body(None)
     }
 }
 
@@ -278,7 +279,7 @@ impl Encoder for HttpCodec {
 
         let length_header = msg.headers().iter().find(|h| h.0 == ::http::header::CONTENT_LENGTH);
 
-        if let &Some(ref vec) = msg.body() {
+        if let &Some(ref vec) = msg.body().inner() {
             if length_header.is_none() {
                 buf.put_slice(b"Content-Length: ");
                 buf.put(format!("{}", vec.len()).as_bytes());
@@ -286,7 +287,7 @@ impl Encoder for HttpCodec {
             }
         }
         buf.put_slice(b"\r\n");
-        if let &Some(ref vec) = msg.body() {
+        if let &Some(ref vec) = msg.body().inner() {
             buf.put(vec.as_slice());
         }
         Ok(())
@@ -422,7 +423,7 @@ mod tests {
             match o.unwrap() {
                 DecodingResult::Ok((req, _, _)) => {
                     let (_, body) = req.into_parts();
-                    let b = body.unwrap();
+                    let b = body.into_inner().unwrap();
                     let body_string = String::from_utf8(b).unwrap();
                     assert_eq!("Hello World", body_string);
                 }

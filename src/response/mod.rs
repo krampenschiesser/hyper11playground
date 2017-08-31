@@ -2,7 +2,7 @@ use http::Response as HttpResponse;
 use std::ops::Deref;
 use http::{StatusCode, HeaderMap, status};
 use http::header::{HeaderValue, HeaderName};
-use ::request::Body;
+use ::body::Body;
 
 #[derive(Debug)]
 pub struct Response {
@@ -66,7 +66,7 @@ impl ResponseBuilder {
         Ok(self)
     }
     pub fn body<T: Into<Vec<u8>>>(mut self, body: T) -> Self {
-        self.body = Some(body.into());
+        self.body = Body(Some(body.into()));
         self
     }
 
@@ -81,7 +81,7 @@ impl ResponseBuilder {
 
 impl Default for ResponseBuilder {
     fn default() -> Self {
-        ResponseBuilder { status: ::http::status::OK, body: None, header: HeaderMap::new() }
+        ResponseBuilder { status: ::http::status::OK, body: Body(None), header: HeaderMap::new() }
     }
 }
 
@@ -97,7 +97,7 @@ impl From<String> for Response {
     fn from(val: String) -> Self {
         let mut builder = HttpResponse::builder();
         builder.status(status::OK);
-        let x = builder.body(Some(val.into())).unwrap(); // in the code only Ok is used
+        let x = builder.body(Body(Some(val.into()))).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
 }
@@ -106,7 +106,7 @@ impl<'a> From<&'a str> for Response {
     fn from(val: &'a str) -> Self {
         let mut builder = HttpResponse::builder();
         builder.status(status::OK);
-        let body: Body = Some(val.to_string().into());
+        let body: Body = Body(Some(val.to_string().into()));
         let x: HttpResponse<Body> = builder.body(body).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
@@ -116,7 +116,7 @@ impl From<::http::StatusCode> for Response {
     fn from(status: ::http::StatusCode) -> Self {
         let mut builder = HttpResponse::builder();
         builder.status(status);
-        let inner = builder.body(None).unwrap();
+        let inner = builder.body(Body(None)).unwrap();
 
         Response { inner }
     }
