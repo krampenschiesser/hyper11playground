@@ -3,12 +3,6 @@ use http::status;
 use http::header::HeaderValue;
 
 use ::response::Response;
-//
-//pub trait HttpError: Sized {
-//    fn get_status(&self) -> u16;
-//    fn get_msg(&self) -> &str;
-//    fn get_headers(&self) -> &Headers;
-//}
 
 #[derive(Debug)]
 pub struct HttpError {
@@ -105,6 +99,7 @@ impl From<::http::header::InvalidHeaderValue> for HttpError {
         HttpError::internal_server_error(error.description())
     }
 }
+
 //fixme would be awesome if this works
 //impl<T: ::std::error::Error> From<T> for HttpError {
 //    fn from(error: T) -> Self {

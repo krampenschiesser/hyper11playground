@@ -18,7 +18,6 @@ impl Body {
 
     pub fn json<T>(&self) -> Result<T, HttpError>
         where T: ::serde::de::DeserializeOwned {
-        use std::io::Read;
         use serde_json::from_str;
         use serde_json::Error;
 
@@ -63,5 +62,25 @@ impl Deref for Body {
 impl From<Option<Vec<u8>>> for Body {
     fn from(o: Option<Vec<u8>>) -> Self {
         Body(o)
+    }
+}
+
+impl From<Vec<u8>> for Body {
+    fn from(o: Vec<u8>) -> Self {
+        Body(Some(o))
+    }
+}
+
+impl From<String> for Body {
+    fn from(o: String) -> Self {
+        let v = o.into_bytes();
+        Body::from(v)
+    }
+}
+
+impl<'a> From<&'a str> for Body {
+    fn from(o: &'a str) -> Self {
+        let v = Vec::from(o.as_bytes());
+        Body::from(v)
     }
 }
