@@ -114,12 +114,16 @@ impl Decoder for HttpCodec {
 
     fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<DecodingResult>> {
         let completed_body = match self.request {
-            Some(ref mut partial) => partial.append_buf(buf),
+            Some(ref mut partial) => {
+                trace!("Got existing partial body, appending");
+                partial.append_buf(buf)
+            }
             None => false
         };
         if completed_body {
             let o = self.request.take();
             if let Some(partial) = o {
+                trace!("Completed partial body, returning");
                 let PartialResultWithBody { body_length: _, request, handler, params } = partial;
                 let decoding_result = DecodingResult::Ok((request, handler, params));
                 return Ok(Some(decoding_result));
@@ -127,24 +131,29 @@ impl Decoder for HttpCodec {
         }
 
         let result = parse(self, buf)?;
+        //fixme remove body handling for non valid requests
         if let None = result {
             if buf.len() > self.config.max_reuest_header_len {
                 buf.clear();
+                trace!("Header exceeds limit, will return error");
                 return Ok(Some(DecodingResult::HeaderTooLarge));
             } else {
+                trace!("Not enough data for header");
                 return Ok(None);
             }
         }
-        let (method, uri, version, header_map, body_complete, content_start, body_length) = result.unwrap();
-        buf.split_to(content_start);//remove part of buffer
+        let (method, uri, version, header_map, body_complete, body_start, body_length) = result.unwrap();
+        buf.split_to(body_start);//remove part of buffer
 
         if body_length > self.config.max_body_size {
             buf.clear();
+            trace!("Body exceeds limit, will return error");
             return Ok(Some(DecodingResult::BodyTooLarge));
         }
 
         let o = self.router.resolve(&method, uri.path());
         if let Some((route, params)) = o {
+            trace!("Found route for {} {}", &method, uri.path());
             let mut b = RequestBuilder::new();
             b.method(method);
             b.uri(uri);
@@ -158,14 +167,17 @@ impl Decoder for HttpCodec {
             } else {
                 b.body(Body(None)).map_err(|e| io_error(e))?
             };
+            *request.headers_mut() = header_map;
 
             if body_complete {
-                let body = get_body(buf, content_start, body_length);
+                let body = get_body(buf, 0, body_length);
                 *request.body_mut() = body;
-                *request.headers_mut() = header_map;
+                debug!("Got Request: {:?}", request);
                 let decoding_result = DecodingResult::Ok((request, route.callback.clone(), params.into()));
                 Ok(Some(decoding_result))
             } else {
+                debug!("Got Request with incomplete body: {:?}", request);
+                trace!("Body not complete. Got {} of {} total bytes", buf.len(), body_length);
                 self.request = Some(PartialResultWithBody { request, params: params.into(), handler: route.callback.clone(), body_length });
                 Ok(None)
             }
@@ -178,6 +190,7 @@ impl Decoder for HttpCodec {
 
 fn get_body(buf: &mut BytesMut, content_start: usize, content_length: usize) -> Body {
     if content_length > 0 {
+        println!("Contentlength={}, contentstart={}, buf.len={}", content_length, content_start, buf.len());
         let split = buf.split_off(content_start);
         let v: Vec<u8> = Vec::from(split.as_ref());
         Body(Some(v))
@@ -208,7 +221,7 @@ fn parse(codec: &mut HttpCodec, buf: &mut BytesMut) -> Result<Option<(Method, Ur
     let version = parse_version(&r);
     let headers = translate_headers(&r)?;
 
-    Ok(Some((method, uri, version, headers, buf.len() == total_length, amt, content_length)))
+    Ok(Some((method, uri, version, headers, buf.len() >= total_length, amt, content_length)))
 }
 
 fn io_error<T: ::std::fmt::Debug>(t: T) -> ::std::io::Error {
@@ -234,9 +247,12 @@ fn parse_version(req: &::httparse::Request) -> Version {
 }
 
 fn get_content_length(req: &::httparse::Request) -> usize {
-    if let Some(header) = req.headers.iter().filter(|h| h.name.as_bytes() == b"Content-Length").next() {
+    use ::http::header::CONTENT_LENGTH;
+
+    if let Some(header) = req.headers.iter().filter(|h| h.name == CONTENT_LENGTH).next() {
         let amount_str = ::std::str::from_utf8(header.value).unwrap_or("");
         let value = usize::from_str(amount_str).unwrap_or(0);
+        trace!("Got content-length={}", value);
         value
     } else {
         0
@@ -298,6 +314,8 @@ impl Encoder for HttpCodec {
 mod tests {
     use super::*;
     use spectral::prelude::*;
+
+    extern crate env_logger;
 
     const RAW_GET: &'static [u8] = b"GET / HTTP/1.1\r\n";
     const RAW_HEADER: &'static [u8] = b"Host: Nirvana\r\nConnection: keep-alive\r\n";
@@ -429,6 +447,35 @@ mod tests {
                 }
                 _ => panic!("Got no result"),
             }
+        }
+    }
+
+    #[test]
+    fn post_simple() {
+        let _ = env_logger::init();
+        let mut r = Router::new();
+        r.get("/", handle);
+
+        let mut codec = HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(r), request: None };
+
+        let mut bytes = BytesMut::from(RAW_GET.as_ref());
+        bytes.extend_from_slice(RAW_HEADER.as_ref());
+        bytes.extend_from_slice(b"Content-Length: 4\r\n".as_ref());
+        bytes.extend_from_slice(b"\r\n".as_ref());
+        bytes.extend_from_slice(b"Hello");
+
+        let r = codec.decode(&mut bytes);
+        assert_that(&r).is_ok();
+        let o = r.unwrap();
+        assert_that(&o).is_some();
+        match o.unwrap() {
+            DecodingResult::Ok((req, _, _)) => {
+                let (_, body) = req.into_parts();
+                let b = body.into_inner().unwrap();
+                let body_string = String::from_utf8(b).unwrap();
+                assert_eq!("Hello", body_string);
+            }
+            _ => panic!("Got no result"),
         }
     }
 }

@@ -1,7 +1,6 @@
 extern crate rest_in_rust;
 extern crate env_logger;
 extern crate serde_json;
-extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
@@ -18,7 +17,7 @@ fn post_json(req: &mut Request) -> Result<Response, HttpError> {
     Ok(format!("{:?}", obj).into())
 }
 
-fn get_json(req: &mut Request) -> Result<Response, HttpError> {
+fn get_json(_: &mut Request) -> Result<Response, HttpError> {
     let obj = Hello { world: "Hello Sauerland".into() };
     let serialized = serde_json::to_string(&obj).unwrap();
     Ok(serialized.into())

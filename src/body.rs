@@ -28,7 +28,10 @@ impl Body {
         }?;
 
         let string_value = match ::std::str::from_utf8(vec.as_ref()) {
-            Err(e) => Err(HttpError::bad_request("Could not parse as utf8 string")),
+            Err(e) => {
+                error!("Could not parse {:?} as utf8 string: {}", vec, e);
+                Err(HttpError::bad_request("Could not parse as utf8 string"))
+            }
             Ok(val) => Ok(val),
         }?;
 

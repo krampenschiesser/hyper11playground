@@ -1,6 +1,5 @@
 extern crate env_logger;
 extern crate rest_in_rust;
-extern crate native_tls;
 
 use rest_in_rust::prelude::*;
 use std::sync::RwLock;
