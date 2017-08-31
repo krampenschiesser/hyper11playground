@@ -14,7 +14,7 @@ impl Response {
         ResponseBuilder::default()
     }
 
-    pub fn moved_permanent<'a, T: AsRef<&'a str>>(url: T) -> Result<Response, ::error::HttpError> {
+    pub fn moved_permanent<T: AsRef< str>>(url: T) -> Result<Response, ::error::HttpError> {
         let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
         Response::builder()
             .status(::http::status::MOVED_PERMANENTLY)
@@ -60,7 +60,7 @@ impl ResponseBuilder {
         self.header.insert(name.into(), value.into());
         self
     }
-    pub fn header_str_value<'a, N: Into<HeaderName>>(mut self, name: N, value: &str) -> Result<Self, ::error::HttpError> {
+    pub fn header_str_value<'a, N: Into<HeaderName>, T: AsRef<str>>(mut self, name: N, value: T) -> Result<Self, ::error::HttpError> {
         let value = HeaderValue::from_str(value.as_ref())?;
         self.header.insert(name.into(), value);
         Ok(self)
@@ -135,9 +135,9 @@ mod tests {
     #[test]
     fn header_from_str() {
         Response::builder()
-            .status(::http::status::NOT_FOUND)
-            .header_str_value(::http::header::CONTENT_TYPE, "Text/CacheManifest").unwrap()
-            .body("")
-            .build().unwrap();
+            .header_str_value(::http::header::CONTENT_TYPE, "Text/CacheManifest").unwrap();
+        let s: String = "huhu".into();
+        Response::builder()
+            .header_str_value(::http::header::CONTENT_TYPE, s).unwrap();
     }
 }
