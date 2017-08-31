@@ -65,8 +65,12 @@ impl ResponseBuilder {
         self.header.insert(name.into(), value);
         Ok(self)
     }
-    pub fn body<T: Into<Vec<u8>>>(mut self, body: T) -> Self {
+    pub fn body_vec<T: Into<Vec<u8>>>(mut self, body: T) -> Self {
         self.body = Body(Some(body.into()));
+        self
+    }
+    pub fn body<T: Into<Body>>(mut self, body: T) -> Self {
+        self.body = body.into();
         self
     }
 

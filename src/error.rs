@@ -59,10 +59,10 @@ impl From<HttpError> for ::http::Response<::body::Body> {
 
 impl From<HttpError> for Response {
     fn from(err: HttpError) -> Response {
-        let r = Response::builder().header_map(err.headers).status(err.status).body(err.msg.into_bytes()).build();
+        let r = Response::builder().header_map(err.headers).status(err.status).body_vec(err.msg.into_bytes()).build();
         match r {
             Ok(res) => res,
-            Err(e) => Response::builder().status(status::INTERNAL_SERVER_ERROR).body(format!("Error happened: {:?}", e).into_bytes()).build().unwrap()
+            Err(e) => Response::builder().status(status::INTERNAL_SERVER_ERROR).body_vec(format!("Error happened: {:?}", e).into_bytes()).build().unwrap()
         }
     }
 }

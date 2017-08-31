@@ -84,3 +84,9 @@ impl<'a> From<&'a str> for Body {
         Body::from(v)
     }
 }
+
+impl From<()> for Body {
+    fn from(_: ()) -> Self {
+        Body(None)
+    }
+}
