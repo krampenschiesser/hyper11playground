@@ -90,3 +90,12 @@ impl From<()> for Body {
         Body(None)
     }
 }
+
+impl<T: ::serde::Serialize> ::std::convert::TryFrom<T> for Body {
+    type Error = HttpError;
+
+    fn try_from(value: T) -> Result<Self, Self::Error> {
+        let string = ::serde_json::to_string(&value).map_err(|e| HttpError::from(e))?;
+        Ok(Body::from(string))
+    }
+}

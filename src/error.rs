@@ -62,7 +62,11 @@ impl From<HttpError> for Response {
         let r = Response::builder().header_map(err.headers).status(err.status).body_vec(err.msg.into_bytes()).build();
         match r {
             Ok(res) => res,
-            Err(e) => Response::builder().status(status::INTERNAL_SERVER_ERROR).body_vec(format!("Error happened: {:?}", e).into_bytes()).build().unwrap()
+            Err(e) => {
+                let msg = format!("Error happened: {:?}", e);
+                error!("Could not convert HttpError to response: {}", msg);
+                Response::builder().status(status::INTERNAL_SERVER_ERROR).body_vec(msg.into_bytes()).build().unwrap()
+            }
         }
     }
 }
@@ -82,6 +86,7 @@ impl From<String> for HttpError {
 impl From<::http::Error> for HttpError {
     fn from(error: ::http::Error) -> Self {
         use std::error::Error;
+        error!("Http parsing error. {}", error.description());
         HttpError::internal_server_error(error.description())
     }
 }
@@ -89,6 +94,7 @@ impl From<::http::Error> for HttpError {
 impl From<::std::io::Error> for HttpError {
     fn from(error: ::std::io::Error) -> Self {
         use std::error::Error;
+        error!("General IO error. {}", error.description());
         HttpError::internal_server_error(error.description())
     }
 }
@@ -96,6 +102,16 @@ impl From<::std::io::Error> for HttpError {
 impl From<::http::header::InvalidHeaderValue> for HttpError {
     fn from(error: ::http::header::InvalidHeaderValue) -> Self {
         use std::error::Error;
+        error!("Could not parse header value. {}", error.description());
+        HttpError::internal_server_error(error.description())
+    }
+}
+
+impl From<::serde_json::Error> for HttpError {
+    fn from(error: ::serde_json::Error) -> Self {
+        use std::error::Error;
+
+        error!("Could not deserialize. {}", error.description());
         HttpError::internal_server_error(error.description())
     }
 }
