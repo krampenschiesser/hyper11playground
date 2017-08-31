@@ -60,11 +60,12 @@ impl ResponseBuilder {
         self.header.insert(name.into(), value.into());
         self
     }
-    pub fn header_str_value<'a, N: Into<HeaderName>, K: AsRef<&'a str>>(mut self, name: N, value: K) -> Result<Self, ::error::HttpError> {
+    pub fn header_str_value<'a, N: Into<HeaderName>>(mut self, name: N, value: &str) -> Result<Self, ::error::HttpError> {
         let value = HeaderValue::from_str(value.as_ref())?;
         self.header.insert(name.into(), value);
         Ok(self)
     }
+
     pub fn body_vec<T: Into<Vec<u8>>>(mut self, body: T) -> Self {
         self.body = Body(Some(body.into()));
         self
@@ -123,5 +124,20 @@ impl From<::http::StatusCode> for Response {
         let inner = builder.body(Body(None)).unwrap();
 
         Response { inner }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn header_from_str() {
+        Response::builder()
+            .status(::http::status::NOT_FOUND)
+            .header_str_value(::http::header::CONTENT_TYPE, "Text/CacheManifest").unwrap()
+            .body("")
+            .build().unwrap();
     }
 }
