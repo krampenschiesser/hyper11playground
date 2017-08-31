@@ -4,7 +4,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
-use rest_in_rust::prelude::*;
+use rest_in_rust::*;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Hello {

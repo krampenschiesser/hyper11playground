@@ -87,9 +87,9 @@ mod tests {
     use http::Request as HttpRequest;
     use super::*;
     use ::body::Body;
-    use ::prelude::*;
     use http::method::*;
     use std::sync::Mutex;
+    use ::*;
 
     fn handle(_: &mut Request) -> Result<Response, HttpError> {
         return Ok("bla".into());

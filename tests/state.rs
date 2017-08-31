@@ -1,7 +1,8 @@
 extern crate rest_in_rust;
 extern crate reqwest;
 
-use rest_in_rust::prelude::*;
+use rest_in_rust::*;
+use rest_in_rust::server::ServerStopper;
 use std::sync::RwLock;
 
 struct State {

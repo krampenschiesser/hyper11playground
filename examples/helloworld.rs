@@ -1,7 +1,7 @@
 extern crate rest_in_rust;
 extern crate env_logger;
 
-use rest_in_rust::prelude::*;
+use rest_in_rust::*;
 
 fn hello_world(req: &mut Request) -> Result<Response, HttpError> {
     Ok(req.param("world").unwrap_or("sauerland").into())

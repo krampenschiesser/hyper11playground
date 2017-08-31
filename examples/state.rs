@@ -1,7 +1,7 @@
 extern crate env_logger;
 extern crate rest_in_rust;
 
-use rest_in_rust::prelude::*;
+use rest_in_rust::*;
 use std::sync::RwLock;
 
 struct State {

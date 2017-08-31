@@ -2,7 +2,7 @@ extern crate rest_in_rust;
 extern crate native_tls;
 extern crate env_logger;
 
-use rest_in_rust::prelude::*;
+use rest_in_rust::*;
 use native_tls::Pkcs12;
 
 

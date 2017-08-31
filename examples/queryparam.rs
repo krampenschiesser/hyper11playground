@@ -1,7 +1,7 @@
 extern crate rest_in_rust;
 extern crate env_logger;
 
-use rest_in_rust::prelude::*;
+use rest_in_rust::*;
 
 fn query_param(req: &mut Request) -> Result<Response, HttpError> {
     let all_params = req.query_all();
