@@ -7,6 +7,8 @@ use ::request::{Request, Body};
 use ::router::Router;
 use state::Container;
 use std::sync::atomic::{AtomicBool, Ordering};
+use native_tls::Pkcs12;
+
 
 use ::error::HttpError;
 use std::net::SocketAddr;
@@ -64,11 +66,11 @@ impl Service for InternalServer {
 
         match res {
             Ok(resp) => {
-                println!("Successfully handled request. Response: {:?}", &resp);
+                trace!("Successfully handled request. Response: {:?}", &resp);
                 future::ok(resp.into_inner())
             },
             Err(err) => {
-                println!("Failed to handle {:?}", &err);
+                warn!("Failed to handle {:?}", &err);
                 future::ok(::response::Response::from(err).into_inner())
             }
         }
@@ -102,6 +104,25 @@ impl Server {
         Ok(stopper)
     }
 
+    pub fn start_https_blocking(self, pkcs: Pkcs12) -> Result<ServerStopper, ()> {
+        use native_tls::TlsAcceptor;
+        use tokio_proto::TcpServer;
+        use tokio_tls::proto;
+
+        let tls_cx = TlsAcceptor::builder(pkcs).unwrap()
+            .build().unwrap();
+
+        let router = self.router;
+        let http = Http { router: router.clone(), config: HttpCodecCfg::default() };
+        let proto = proto::Server::new(http, tls_cx);
+
+        let addr = self.addr.clone();
+        let srv = TcpServer::new(proto, addr);
+        let state = self.state;
+        srv.serve(move || Ok(InternalServer { state: state.clone() }));
+
+        Ok(ServerStopper::default())
+    }
 
     pub fn add_state<T: Send + Sync + 'static>(&self, state: T) {
         if !self.state.set::<T>(state) {

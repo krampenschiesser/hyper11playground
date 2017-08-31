@@ -11,7 +11,7 @@ use ::router::Router;
 use ::handler::Handler;
 use std::sync::Arc;
 
-use ::request::Body;
+use ::request::{Body, Params};
 
 pub struct Http {
     pub router: Arc<Router>,
@@ -25,7 +25,7 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for Http {
     type BindTransport = io::Result<Framed<T, HttpCodec>>;
 
     fn bind_transport(&self, io: T) -> io::Result<Framed<T, HttpCodec>> {
-        let codec = HttpCodec { config: self.config.clone(), router: self.router.clone() };
+        let codec = HttpCodec { config: self.config.clone(), router: self.router.clone(), request: None };
         Ok(io.framed(codec))
     }
 }
@@ -46,11 +46,43 @@ impl Default for HttpCodecCfg {
 pub struct HttpCodec {
     config: HttpCodecCfg,
     router: Arc<Router>,
+    request: Option<PartialResultWithBody>,
 }
+
+struct PartialResultWithBody {
+    body_length: BodyLength,
+    request: Request<Body>,
+    handler: Arc<Box<Handler>>,
+    params: Params,
+}
+
+impl PartialResultWithBody {
+    fn append_buf(&mut self, buf: &mut BytesMut) -> bool {
+        if let &mut Some(ref mut body) = self.request.body_mut() {
+            let buf_len = buf.len();
+            let current_length = body.len();
+            let remaining_length = self.body_length - current_length;
+
+            if buf_len > remaining_length {
+                let buf_body = buf.split_to(self.body_length);
+                body.extend_from_slice(buf_body.as_ref());
+                true
+            } else {
+                body.extend_from_slice(buf.as_ref());
+                buf.clear();
+                buf_len == remaining_length
+            }
+        } else {
+            return false;
+        }
+    }
+}
+
+type BodyLength = usize;
 
 impl Default for HttpCodec {
     fn default() -> Self {
-        HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(Router::new()) }
+        HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(Router::new()), request: None }
     }
 }
 
@@ -70,7 +102,7 @@ impl ::std::fmt::Debug for DecodingResult {
             RouteNotFound => write!(f, "RouteNotFound"),
             HeaderTooLarge => write!(f, "HeaderTooLarge"),
             BodyTooLarge => write!(f, "BodyTooLarge"),
-            Ok(_) => write!(f, "Ok(...)"),
+            Ok((ref req, _, ref params)) => write!(f, "Ok({:?} [{:?}])", req, params),
         }
     }
 }
@@ -80,6 +112,19 @@ impl Decoder for HttpCodec {
     type Error = io::Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<DecodingResult>> {
+        let completed_body = match self.request {
+            Some(ref mut partial) => partial.append_buf(buf),
+            None => false
+        };
+        if completed_body {
+            let o = self.request.take();
+            if let Some(partial) = o {
+                let PartialResultWithBody { body_length: _, request, handler, params } = partial;
+                let decoding_result = DecodingResult::Ok((request, handler, params));
+                return Ok(Some(decoding_result));
+            }
+        }
+
         let result = parse(self, buf)?;
         if let None = result {
             if buf.len() > self.config.max_reuest_header_len {
@@ -89,27 +134,38 @@ impl Decoder for HttpCodec {
                 return Ok(None);
             }
         }
-        let (method, uri, version, header_map, body_complete, content_start, content_length) = result.unwrap();
+        let (method, uri, version, header_map, body_complete, content_start, body_length) = result.unwrap();
         buf.split_to(content_start);//remove part of buffer
 
-        if content_length > self.config.max_body_size {
+        if body_length > self.config.max_body_size {
             buf.clear();
             return Ok(Some(DecodingResult::BodyTooLarge));
         }
 
         let o = self.router.resolve(&method, uri.path());
         if let Some((route, params)) = o {
+            let mut b = RequestBuilder::new();
+            b.method(method);
+            b.uri(uri);
+            b.version(version);
+
+            let mut request = if body_length > 0 {
+                let max_init_content = 4000;
+                let capacity = ::std::cmp::min(body_length, max_init_content);
+                let vec = Vec::with_capacity(capacity);
+                b.body(Some(vec)).map_err(|e| io_error(e))?
+            } else {
+                b.body(None).map_err(|e| io_error(e))?
+            };
+
             if body_complete {
-                let body = get_body(buf, content_start, content_length);
-                let mut b = RequestBuilder::new();
-                b.method(method);
-                b.uri(uri);
-                b.version(version);
-                let mut request = b.body(body).map_err(|e| io_error(e))?;
+                let body = get_body(buf, content_start, body_length);
+                *request.body_mut() = body;
                 *request.headers_mut() = header_map;
                 let decoding_result = DecodingResult::Ok((request, route.callback.clone(), params.into()));
                 Ok(Some(decoding_result))
             } else {
+                self.request = Some(PartialResultWithBody { request, params: params.into(), handler: route.callback.clone(), body_length });
                 Ok(None)
             }
         } else {
@@ -242,8 +298,8 @@ mod tests {
     use super::*;
     use spectral::prelude::*;
 
-    const RAW_GET: &'static [u8] = b"GET / HTTP / 1.0\r\n";
-    const RAW_HEADER: &'static [u8] = b"Host: Nirvana\r\nConnection: keep - alive\r\n";
+    const RAW_GET: &'static [u8] = b"GET / HTTP/1.1\r\n";
+    const RAW_HEADER: &'static [u8] = b"Host: Nirvana\r\nConnection: keep-alive\r\n";
 
     fn handle(_: &mut ::request::Request) -> Result<::response::Response, ::error::HttpError> {
         Ok("".into())
@@ -259,52 +315,48 @@ mod tests {
 
         match r {
             DecodingResult::HeaderTooLarge => return,
-            r => panic!("wrong return value { : ? };
-                ", r)
+            r => panic!("wrong return value {:?}", r)
         }
     }
-
 
     #[test]
     fn test_body_too_long() {
         let mut bytes = BytesMut::from(RAW_GET.as_ref());
         bytes.extend_from_slice(RAW_HEADER.as_ref());
-        bytes.extend_from_slice(b"Content - Length: 30\r\n\r\n".as_ref());
+        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
 
         let config = HttpCodecCfg { max_reuest_header_len: 8000, max_body_size: 10, max_headers: 10 };
         let r = parse(bytes, config);
 
         match r {
             DecodingResult::BodyTooLarge => return,
-            r => panic!("wrong return value { : ? };
-                ", r)
+            r => panic!("wrong return value {:?}", r)
         }
     }
 
     fn parse(mut bytes: BytesMut, config: HttpCodecCfg) -> DecodingResult {
         let router = Arc::new(Router::new());
-        let mut codec = HttpCodec { config, router };
+        let mut codec = HttpCodec { config, router, request: None };
         let r = codec.decode(&mut bytes);
         match r {
             Ok(s) => match s {
                 Some(s) => s,
                 None => panic!("Decoder not ready and waiting -> but should abort"),
             },
-            Err(e) => panic!("Got error from decoder { : ? }", e),
+            Err(e) => panic!("Got error from decoder {:?}", e),
         }
     }
-
 
     #[test]
     fn test_body_missing() {
         let mut bytes = BytesMut::from(RAW_GET.as_ref());
         bytes.extend_from_slice(RAW_HEADER.as_ref());
-        bytes.extend_from_slice(b"Content - Length: 30\r\n\r\n".as_ref());
+        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
 
         let mut r = Router::new();
-        r.get(" / ", handle);
+        r.get("/", handle);
         let cfg = HttpCodecCfg::default();
-        let mut codec = HttpCodec { config: cfg, router: Arc::new(r) };
+        let mut codec = HttpCodec { config: cfg, router: Arc::new(r), request: None };
         let r = codec.decode(&mut bytes);
         assert_that(&r).is_ok();
         assert_that(&r.unwrap()).is_none();
@@ -314,7 +366,7 @@ mod tests {
     fn test_route_not_found() {
         let mut bytes = BytesMut::from(RAW_GET.as_ref());
         bytes.extend_from_slice(RAW_HEADER.as_ref());
-        bytes.extend_from_slice(b"Content - Length: 30\r\n\r\n".as_ref());
+        bytes.extend_from_slice(b"Content-Length: 30\r\n\r\n".as_ref());
 
         let mut codec = HttpCodec::default();
         let r = codec.decode(&mut bytes);
@@ -325,8 +377,7 @@ mod tests {
 
         match r {
             DecodingResult::RouteNotFound => return,
-            r => panic!("wrong return value { : ? };
-                ", r)
+            r => panic!("wrong return value {:?}", r)
         }
     }
 
@@ -339,5 +390,44 @@ mod tests {
         let r = codec.decode(&mut bytes);
         assert_that(&r).is_ok();
         assert_that(&r.unwrap()).is_none();
+    }
+
+    #[test]
+    fn receive_body_two_parts() {
+        let mut r = Router::new();
+        r.get("/", handle);
+
+        let mut codec = HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(r), request: None };
+
+        let mut bytes = BytesMut::from(RAW_GET.as_ref());
+        bytes.extend_from_slice(RAW_HEADER.as_ref());
+        bytes.extend_from_slice(b"Content-Length: 11\r\n".as_ref());
+        bytes.extend_from_slice(b"\r\n".as_ref());
+        bytes.extend_from_slice(b"Hello ");
+
+        {
+            let r = codec.decode(&mut bytes);
+            assert_that(&r).is_ok();
+            assert_that(&r.unwrap()).is_none();
+        }
+        assert_eq!(6, bytes.len());
+        assert!(&codec.request.is_some());
+
+        bytes.extend_from_slice(b"World");
+        {
+            let r = codec.decode(&mut bytes);
+            assert_that(&r).is_ok();
+            let o = r.unwrap();
+            assert_that(&o).is_some();
+            match o.unwrap() {
+                DecodingResult::Ok((req, _, _)) => {
+                    let (parts, body) = req.into_parts();
+                    let b = body.unwrap();
+                    let body_string = String::from_utf8(b).unwrap();
+                    assert_eq!("Hello World", body_string);
+                }
+                _ => panic!("Got no result"),
+            }
+        }
     }
 }

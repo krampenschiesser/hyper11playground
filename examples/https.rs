@@ -1,5 +1,6 @@
 extern crate rest_in_rust;
 extern crate native_tls;
+extern crate env_logger;
 
 use rest_in_rust::prelude::*;
 use native_tls::Pkcs12;
@@ -10,6 +11,7 @@ fn hello_world(_: &mut Request) -> Result<Response, HttpError> {
 }
 
 fn main() {
+    let _ = env_logger::init();
     let addr = "127.0.0.1:8091".parse().unwrap();
 
     let mut r = Router::new();

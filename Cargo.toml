@@ -18,10 +18,10 @@ bytes = "0.4.5"
 httparse = "1.2.3"
 
 
-futures = "0.1.14"
+futures = "0.1"
 route-recognizer = "0.1"
 url = "1.5.1"
-serde = "1.0.10"
+serde = "1.0.11"
 serde_json = "1.0.2"
 log = "0.3.8"
 
@@ -29,6 +29,7 @@ state = "0.3.1"
 http = { git = 'https://github.com/carllerche/http' }
 
 reqwest = "0.7.1" #should be in dev dependencies
+
 [dev-dependencies]
 env_logger = "0.4.3"
 spectral = "0.6.0"

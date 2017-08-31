@@ -8,8 +8,6 @@ extern crate serde_json;
 extern crate futures;
 #[macro_use]
 extern crate log;
-//#[cfg(debug_assertions)]
-//extern crate env_logger;
 extern crate native_tls;
 extern crate tokio_tls;
 extern crate tokio_service;

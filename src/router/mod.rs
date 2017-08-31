@@ -141,7 +141,7 @@ mod tests {
         let (route, _) = router.resolve(&GET, "/hello").unwrap();
         let ref handler = route.get_callback();
 
-        let mut req = request(::http::method::GET, ::http::Uri::default());
+        let req = request(::http::method::GET, ::http::Uri::default());
         let c = ::state::Container::new();
         let mut r = Request::new(req, &c, Params::new());
         (*handler).handle(&mut r).unwrap();

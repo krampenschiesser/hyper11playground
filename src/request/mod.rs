@@ -140,7 +140,7 @@ mod tests {
     use super::*;
     use super::Params;
     use std::str::FromStr;
-    use http::{Uri, Method, method};
+    use http::{Uri, method};
 
     #[test]
     fn test_query_param() {
