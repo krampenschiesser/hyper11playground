@@ -24,5 +24,5 @@ fn main() {
 
 
     let s = Server::new(addr,r);
-    s.start_http_blocking().unwrap();
+    s.start_http();
 }

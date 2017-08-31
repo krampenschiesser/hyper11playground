@@ -421,7 +421,7 @@ mod tests {
             assert_that(&o).is_some();
             match o.unwrap() {
                 DecodingResult::Ok((req, _, _)) => {
-                    let (parts, body) = req.into_parts();
+                    let (_, body) = req.into_parts();
                     let b = body.unwrap();
                     let body_string = String::from_utf8(b).unwrap();
                     assert_eq!("Hello World", body_string);

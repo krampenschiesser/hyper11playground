@@ -12,6 +12,8 @@ pub trait FromRequestAsRef<'a>: Sized {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[allow(dead_code)]
     struct Bla();
 
     impl FromRequest for Bla {

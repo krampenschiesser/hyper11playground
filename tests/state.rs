@@ -1,5 +1,4 @@
 extern crate rest_in_rust;
-extern crate native_tls;
 extern crate reqwest;
 
 use rest_in_rust::prelude::*;
@@ -63,7 +62,8 @@ mod tests {
 
     #[test]
     fn state_req() {
-        let stopper = super::setup();
+        super::setup();
+        //        let stopper = super::setup();
 
         let answer = get("hallo");
         assert_eq!("hallo", answer.as_str());
@@ -71,7 +71,7 @@ mod tests {
         get("sauerland");
 
 
-        let mut answer = get("history");
+        let answer = get("history");
         assert_eq!("hallo\nsauerland", answer.as_str());
 
         //shutdown does not work
@@ -87,7 +87,7 @@ mod tests {
         let mut response = ::reqwest::get(url.as_str()).unwrap();
 
         let mut answer = String::new();
-        response.read_to_string(&mut answer);
+        response.read_to_string(&mut answer).unwrap();
         println!("Got response {}", answer);
         answer
     }

@@ -47,5 +47,5 @@ fn main() {
 
     let s = Server::new(addr, r);
     s.add_state(state);
-    s.start_http_blocking().unwrap();
+    s.start_http();
 }

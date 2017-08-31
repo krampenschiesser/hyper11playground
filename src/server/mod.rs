@@ -86,11 +86,12 @@ impl Server {
         use std::thread::spawn;
         let stopper = self.stopper.clone();
 
-        spawn(|| self.start_http_blocking());
+        spawn(|| self.start_http());
         Ok(stopper)
     }
 
-    pub fn start_http_blocking(self) -> Result<ServerStopper, ()> {
+    pub fn start_http(self) {
+        //fixme currently shutdown not supported by tcpserver, next version  -> Result<ServerStopper, ()> {
         let addr = self.addr.clone();
         let router = self.router;
         let state = self.state;
@@ -99,12 +100,12 @@ impl Server {
         let http = Http { router: router.clone(), config: HttpCodecCfg::default() };
         TcpServer::new(http, addr).serve(move || Ok(InternalServer { state: state.clone() }));
 
-        let stopper = ServerStopper { stop: Arc::new(::std::sync::atomic::AtomicBool::new(false)) };
-        //        s.run_until(stopper.clone())?;
-        Ok(stopper)
+        //        let stopper = ServerStopper { stop: Arc::new(::std::sync::atomic::AtomicBool::new(false)) };
+        //        Ok(stopper)
     }
 
-    pub fn start_https_blocking(self, pkcs: Pkcs12) -> Result<ServerStopper, ()> {
+    pub fn start_https(self, pkcs: Pkcs12) {
+        //fixme currently shutdown not supported by tcpserver, next version  -> Result<ServerStopper, ()> {
         use native_tls::TlsAcceptor;
         use tokio_proto::TcpServer;
         use tokio_tls::proto;
@@ -121,7 +122,7 @@ impl Server {
         let state = self.state;
         srv.serve(move || Ok(InternalServer { state: state.clone() }));
 
-        Ok(ServerStopper::default())
+        //        Ok(ServerStopper::default())
     }
 
     pub fn add_state<T: Send + Sync + 'static>(&self, state: T) {
