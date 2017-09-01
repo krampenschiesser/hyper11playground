@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_direct_testing() {
-        use http::method;
+        use http::Method;
         use http::request::Builder;
         use http::Uri;
         use std::str::FromStr;
@@ -114,7 +114,7 @@ mod tests {
         let tester = s.start_testing();
 
         let mut b = Builder::new();
-        b.method(method::GET);
+        b.method(Method::GET);
         b.uri(Uri::from_str("http://127.0.0.1:8091/hello").unwrap());
         let request = b.body(Body::from("world")).unwrap();
 
@@ -122,7 +122,7 @@ mod tests {
         assert_eq!(200, response.status().as_u16());
 
         let mut b = Builder::new();
-        b.method(method::GET);
+        b.method(Method::GET);
         b.uri(Uri::from_str("http://127.0.0.1:8091/history").unwrap());
         let request = b.body(().into()).unwrap();
         let response = tester.handle(request);

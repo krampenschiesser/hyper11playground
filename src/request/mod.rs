@@ -154,13 +154,13 @@ mod tests {
     use super::*;
     use super::Params;
     use std::str::FromStr;
-    use http::{Uri, method};
+    use http::{Uri, Method};
 
     #[test]
     fn test_query_param() {
         let c = Container::new();
         let mut r = HttpRequest::new(::body::Body(None));
-        *r.method_mut() = method::GET;
+        *r.method_mut() = Method::GET;
         *r.uri_mut() = Uri::from_str("/bla?hallo=welt&hallo=blubb").unwrap();
 
         let req = Request::new(r, &c, Params::new());

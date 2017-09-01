@@ -239,10 +239,10 @@ fn parse_uri(req: &::httparse::Request) -> Result<Uri, ::http::uri::InvalidUri> 
 
 fn parse_version(req: &::httparse::Request) -> Version {
     match req.version.unwrap() {
-        2 => ::http::version::HTTP_2,
-        1 => ::http::version::HTTP_11,
-        0 => ::http::version::HTTP_10,
-        _ => ::http::version::HTTP_11
+        2 => ::http::Version::HTTP_2,
+        1 => ::http::Version::HTTP_11,
+        0 => ::http::Version::HTTP_10,
+        _ => ::http::Version::HTTP_11
     }
 }
 

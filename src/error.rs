@@ -1,5 +1,4 @@
 use http::{StatusCode, HeaderMap};
-use http::status;
 use http::header::HeaderValue;
 
 use ::response::Response;
@@ -26,19 +25,19 @@ impl ::std::error::Error for HttpError {
 impl HttpError {
     pub fn not_found<S: Into<String>>(resource: Option<S>) -> Self {
         let msg: String = resource.map(|x| x.into()).unwrap_or("".into());
-        Self::internal_error(status::NOT_FOUND, msg)
+        Self::internal_error(StatusCode::NOT_FOUND, msg)
     }
 
     pub fn bad_request<S: Into<String>>(resource: S) -> Self {
-        Self::internal_error(status::BAD_REQUEST, resource)
+        Self::internal_error(StatusCode::BAD_REQUEST, resource)
     }
 
     pub fn unauthorized<S: Into<String>>(resource: S) -> Self {
-        Self::internal_error(status::UNAUTHORIZED, resource)
+        Self::internal_error(StatusCode::UNAUTHORIZED, resource)
     }
 
     pub fn internal_server_error<S: Into<String>>(resource: S) -> Self {
-        Self::internal_error(status::INTERNAL_SERVER_ERROR, resource)
+        Self::internal_error(StatusCode::INTERNAL_SERVER_ERROR, resource)
     }
 
     fn internal_error<S: Into<String>>(status: StatusCode, msg: S) -> Self {
@@ -65,7 +64,7 @@ impl From<HttpError> for Response {
             Err(e) => {
                 let msg = format!("Error happened: {:?}", e);
                 error!("Could not convert HttpError to response: {}", msg);
-                Response::builder().status(status::INTERNAL_SERVER_ERROR).body_vec(msg.into_bytes()).build().unwrap()
+                Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body_vec(msg.into_bytes()).build().unwrap()
             }
         }
     }
@@ -73,13 +72,13 @@ impl From<HttpError> for Response {
 
 impl<'a> From<&'a str> for HttpError {
     fn from(msg: &'a str) -> Self {
-        HttpError { status: ::http::status::INTERNAL_SERVER_ERROR, headers: HeaderMap::new(), msg: msg.into() }
+        HttpError { status: StatusCode::INTERNAL_SERVER_ERROR, headers: HeaderMap::new(), msg: msg.into() }
     }
 }
 
 impl From<String> for HttpError {
     fn from(msg: String) -> Self {
-        HttpError { status: ::http::status::INTERNAL_SERVER_ERROR, headers: HeaderMap::new(), msg: msg }
+        HttpError { status: StatusCode::INTERNAL_SERVER_ERROR, headers: HeaderMap::new(), msg: msg }
     }
 }
 

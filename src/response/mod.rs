@@ -1,6 +1,6 @@
 use http::Response as HttpResponse;
 use std::ops::Deref;
-use http::{StatusCode, HeaderMap, status};
+use http::{StatusCode, HeaderMap};
 use http::header::{HeaderValue, HeaderName};
 use ::body::Body;
 
@@ -17,7 +17,7 @@ impl Response {
     pub fn moved_permanent<T: AsRef< str>>(url: T) -> Result<Response, ::error::HttpError> {
         let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
         Response::builder()
-            .status(::http::status::MOVED_PERMANENTLY)
+            .status(StatusCode::MOVED_PERMANENTLY)
             .header(::http::header::LOCATION, value)
             .build()
     }
@@ -86,7 +86,7 @@ impl ResponseBuilder {
 
 impl Default for ResponseBuilder {
     fn default() -> Self {
-        ResponseBuilder { status: ::http::status::OK, body: Body(None), header: HeaderMap::new() }
+        ResponseBuilder { status: StatusCode::OK, body: Body(None), header: HeaderMap::new() }
     }
 }
 
@@ -101,7 +101,7 @@ impl Deref for Response {
 impl From<String> for Response {
     fn from(val: String) -> Self {
         let mut builder = HttpResponse::builder();
-        builder.status(status::OK);
+        builder.status(StatusCode::OK);
         let x = builder.body(Body(Some(val.into()))).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
@@ -110,7 +110,7 @@ impl From<String> for Response {
 impl<'a> From<&'a str> for Response {
     fn from(val: &'a str) -> Self {
         let mut builder = HttpResponse::builder();
-        builder.status(status::OK);
+        builder.status(StatusCode::OK);
         let body: Body = Body(Some(val.to_string().into()));
         let x: HttpResponse<Body> = builder.body(body).unwrap(); // in the code only Ok is used
         Response { inner: x }
