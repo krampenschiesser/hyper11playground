@@ -8,8 +8,8 @@ use router::Router;
 use error::HttpError;
 
 pub struct ServerTester {
-    pub router: Arc<Router>,
-    pub state: Arc<Container>,
+    router: Arc<Router>,
+    state: Arc<Container>,
 }
 
 

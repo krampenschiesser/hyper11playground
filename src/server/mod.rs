@@ -14,7 +14,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 mod codec;
-mod tester;
+pub mod tester;
 
 use self::codec::{Http, HttpCodecCfg, DecodingResult};
 
