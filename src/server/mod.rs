@@ -3,7 +3,7 @@ use http::Response;
 use futures::future;
 use tokio_service::Service;
 use tokio_proto::TcpServer;
-use ::request::{Request};
+use ::request::Request;
 use ::body::Body;
 use ::router::Router;
 use state::Container;
@@ -14,6 +14,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 mod codec;
+mod tester;
 
 use self::codec::{Http, HttpCodecCfg, DecodingResult};
 
@@ -67,7 +68,7 @@ impl Service for InternalServer {
             Ok(resp) => {
                 trace!("Successfully handled request. Response: {:?}", &resp);
                 future::ok(resp.into_inner())
-            },
+            }
             Err(err) => {
                 warn!("Failed to handle {:?}", &err);
                 future::ok(::response::Response::from(err).into_inner())
@@ -87,6 +88,12 @@ impl Server {
 
         spawn(|| self.start_http());
         Ok(stopper)
+    }
+
+    pub fn start_testing(self) -> self::tester::ServerTester {
+        use self::tester::ServerTester;
+
+        ServerTester::new(self.router ,self.state)
     }
 
     pub fn start_http(self) {

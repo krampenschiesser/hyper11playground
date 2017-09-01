@@ -12,7 +12,7 @@ struct Hello {
 }
 
 fn post_json(req: &mut Request) -> Result<Response, HttpError> {
-    let obj: Hello = req.body().json()?;
+    let obj: Hello = req.body().to_json()?;
 
     Ok(format!("{:?}", obj).into())
 }

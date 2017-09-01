@@ -1,6 +1,7 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(try_from)]
+
 extern crate url;
 extern crate route_recognizer;
 extern crate serde;
@@ -22,8 +23,6 @@ extern crate httparse;
 
 #[cfg(test)]
 extern crate spectral;
-//#[cfg(debug_assertions)]
-//extern crate reqwest;
 
 
 pub mod server;

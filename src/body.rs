@@ -5,6 +5,15 @@ use error::HttpError;
 pub struct Body(pub Option<Vec<u8>>);
 
 impl Body {
+    pub fn empty() -> Self {
+        ().into()
+    }
+    pub fn fom_serde<T: ::serde::Serialize>(value: T) -> Result<Self, HttpError> {
+        use std::convert::TryFrom;
+
+        Body::try_from(value)
+    }
+
     pub fn inner_mut(&mut self) -> &mut Option<Vec<u8>> {
         &mut self.0
     }
@@ -16,7 +25,7 @@ impl Body {
         self.0
     }
 
-    pub fn json<T>(&self) -> Result<T, HttpError>
+    pub fn to_json<T>(&self) -> Result<T, HttpError>
         where T: ::serde::de::DeserializeOwned {
         use serde_json::from_str;
         use serde_json::Error;
@@ -42,6 +51,15 @@ impl Body {
                 Err(HttpError::bad_request("Could not parse input as json"))
             }
         }
+    }
+
+    pub fn to_string(&self) -> Result<String, HttpError> {
+        let vec: &Vec<u8> = match self.0 {
+            Some(ref v) => v,
+            None => return Err(HttpError::bad_request("Trying to read non existing string from body")),
+        };
+        let str = ::std::str::from_utf8(vec.as_slice())?;
+        Ok(str.into())
     }
 }
 

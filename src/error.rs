@@ -116,6 +116,13 @@ impl From<::serde_json::Error> for HttpError {
     }
 }
 
+impl From<::std::str::Utf8Error> for HttpError {
+    fn from(error: ::std::str::Utf8Error) -> Self {
+        use std::error::Error;
+        HttpError::bad_request(error.description())
+    }
+}
+
 //fixme would be awesome if this works
 //impl<T: ::std::error::Error> From<T> for HttpError {
 //    fn from(error: T) -> Self {
