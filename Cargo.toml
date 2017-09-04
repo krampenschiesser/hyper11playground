@@ -10,6 +10,11 @@ readme = "README.md"
 categories = ["http", "rest"]
 keywords = ["http", "server", "rest", "tokio"]
 license = "Apache/MIT"
+exclude = [
+  "examples/certificate.p12",
+  ".travis.yml",
+  "appveyor.yml"
+]
 
 [features]
 unstable = ["clippy"]
