@@ -1,11 +1,9 @@
 language: rust
 rust:
   - nightly
-  - stable
 matrix:
   allow_failures:
     - rust: nightly
-    - rust: stable
 os:
   - linux
   - osx
