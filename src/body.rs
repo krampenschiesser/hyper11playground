@@ -1,8 +1,24 @@
 use std::ops::Deref;
 use error::HttpError;
+use std::fmt::{Formatter, Result as FmtResult, Debug};
 
-#[derive(Debug)]
 pub struct Body(pub Option<Vec<u8>>);
+
+impl Debug for Body {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        use std::str::from_utf8;
+
+        match &self.0 {
+            &None => write!(f, "Body(None)"),
+            &Some(ref v) => {
+                match from_utf8(v.as_ref()) {
+                    Ok(s) => write!(f, "Body('{}')", s),
+                    Err(_) => write!(f, "Body({:?})", v),
+                }
+            }
+        }
+    }
+}
 
 impl Body {
     pub fn empty() -> Self {
