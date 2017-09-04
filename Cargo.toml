@@ -2,6 +2,14 @@
 name = "rest_in_rust"
 version = "0.1.0"
 authors = ["Christian <krampenschiesser@gmail.com>"]
+description = "Basic http1 server based on tokio and http crate"
+#documentation = "https://docs.rs/rest_in_rust"
+homepage = "https://github.com/krampenschiesser/rest_in_rust"
+repository = "https://github.com/krampenschiesser/rest_in_rust"
+readme = "README.md"
+categories = ["http", "rest"]
+keywords = ["http", "server", "rest", "tokio"]
+license = "Apache/MIT"
 
 [features]
 unstable = ["clippy"]
@@ -32,3 +40,7 @@ http = { git = 'https://github.com/carllerche/http' }
 reqwest = "0.7.1" #should be in dev dependencies
 env_logger = "0.4.3"
 spectral = "0.6.0"
+
+[badges]
+appveyor = { repository = "https://github.com/krampenschiesser/rest_in_rust", branch = "master", service = "github" }
+travis-ci = { repository = "https://github.com/krampenschiesser/rest_in_rust", branch = "master" }
