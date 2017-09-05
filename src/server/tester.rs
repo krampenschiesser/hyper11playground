@@ -12,17 +12,17 @@ use std::sync::Arc;
 
 
 use body::Body;
-use router::Router;
+use router::InternalRouter;
 use error::HttpError;
 
 pub struct ServerTester {
-    router: Arc<Router>,
+    router: Arc<InternalRouter>,
     state: Arc<Container>,
 }
 
 
 impl ServerTester {
-    pub fn new(router: Arc<Router>, state: Arc<Container>) -> Self {
+    pub fn new(router: Arc<InternalRouter>, state: Arc<Container>) -> Self {
         ServerTester { router, state }
     }
     pub fn handle(&self, req: Request<Body>) -> Response<Body> {

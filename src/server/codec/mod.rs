@@ -15,15 +15,14 @@ use http::{Request, Response, Method, Uri, Version};
 use http::header::{HeaderValue, HeaderName, HeaderMap};
 use http::request::Builder as RequestBuilder;
 use std::str::FromStr;
-use ::router::Router;
-use ::handler::Handler;
+use ::router::{InternalRouter, Route};
 use std::sync::Arc;
 
 use ::body::Body;
 use ::request::Params;
 
 pub struct Http {
-    pub router: Arc<Router>,
+    pub router: Arc<InternalRouter>,
     pub config: HttpCodecCfg,
 }
 
@@ -54,14 +53,14 @@ impl Default for HttpCodecCfg {
 
 pub struct HttpCodec {
     config: HttpCodecCfg,
-    router: Arc<Router>,
+    router: Arc<InternalRouter>,
     request: Option<PartialResultWithBody>,
 }
 
 struct PartialResultWithBody {
     body_length: BodyLength,
     request: Request<Body>,
-    handler: Arc<Box<Handler>>,
+    handler: Arc<Route>,
     params: Params,
 }
 
@@ -91,7 +90,7 @@ type BodyLength = usize;
 
 impl Default for HttpCodec {
     fn default() -> Self {
-        HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(Router::new()), request: None }
+        HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(InternalRouter::new(::router::Router::new())), request: None }
     }
 }
 
@@ -99,9 +98,14 @@ pub enum DecodingResult {
     RouteNotFound,
     HeaderTooLarge,
     BodyTooLarge,
-    Ok((Request<Body>, Arc<Box<Handler>>, ::request::Params)),
+    Ok(DecodedRequest),
 }
 
+pub struct DecodedRequest {
+    pub request: Request<Body>,
+    pub route: Arc<Route>,
+    pub params: Params,
+}
 
 impl ::std::fmt::Debug for DecodingResult {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
@@ -111,7 +115,7 @@ impl ::std::fmt::Debug for DecodingResult {
             RouteNotFound => write!(f, "RouteNotFound"),
             HeaderTooLarge => write!(f, "HeaderTooLarge"),
             BodyTooLarge => write!(f, "BodyTooLarge"),
-            Ok((ref req, _, ref params)) => write!(f, "Ok({:?} [{:?}])", req, params),
+            Ok(ref res) => write!(f, "Ok({:?} [{:?}])", res.request, res.params),
         }
     }
 }
@@ -132,8 +136,9 @@ impl Decoder for HttpCodec {
             let o = self.request.take();
             if let Some(partial) = o {
                 trace!("Completed partial body, returning");
-                let PartialResultWithBody { body_length: _, request, handler, params } = partial;
-                let decoding_result = DecodingResult::Ok((request, handler, params));
+                let PartialResultWithBody { body_length: _, request, handler: route, params } = partial;
+                let dec_req = DecodedRequest { request, params, route };
+                let decoding_result = DecodingResult::Ok(dec_req);
                 return Ok(Some(decoding_result));
             }
         }
@@ -181,12 +186,13 @@ impl Decoder for HttpCodec {
                 let body = get_body(buf, 0, body_length);
                 *request.body_mut() = body;
                 debug!("Got Request: {:?}", request);
-                let decoding_result = DecodingResult::Ok((request, route.callback.clone(), params.into()));
+                let dec_req = DecodedRequest { request, params: params.into(), route };
+                let decoding_result = DecodingResult::Ok(dec_req);
                 Ok(Some(decoding_result))
             } else {
                 debug!("Got Request with incomplete body: {:?}", request);
                 trace!("Body not complete. Got {} of {} total bytes", buf.len(), body_length);
-                self.request = Some(PartialResultWithBody { request, params: params.into(), handler: route.callback.clone(), body_length });
+                self.request = Some(PartialResultWithBody { request, params: params.into(), handler: route, body_length });
                 Ok(None)
             }
         } else {
@@ -325,6 +331,8 @@ mod tests {
 
     extern crate env_logger;
 
+    use router::{Router, InternalRouter};
+
     const RAW_GET: &'static [u8] = b"GET / HTTP/1.1\r\n";
     const RAW_HEADER: &'static [u8] = b"Host: Nirvana\r\nConnection: keep-alive\r\n";
 
@@ -362,7 +370,7 @@ mod tests {
     }
 
     fn parse(mut bytes: BytesMut, config: HttpCodecCfg) -> DecodingResult {
-        let router = Arc::new(Router::new());
+        let router = Arc::new(InternalRouter::new(Router::new()));
         let mut codec = HttpCodec { config, router, request: None };
         let r = codec.decode(&mut bytes);
         match r {
@@ -383,7 +391,7 @@ mod tests {
         let mut r = Router::new();
         r.get("/", handle);
         let cfg = HttpCodecCfg::default();
-        let mut codec = HttpCodec { config: cfg, router: Arc::new(r), request: None };
+        let mut codec = HttpCodec { config: cfg, router: Arc::new(InternalRouter::new(r)), request: None };
         let r = codec.decode(&mut bytes);
         assert_that(&r).is_ok();
         assert_that(&r.unwrap()).is_none();
@@ -424,7 +432,7 @@ mod tests {
         let mut r = Router::new();
         r.get("/", handle);
 
-        let mut codec = HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(r), request: None };
+        let mut codec = HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(InternalRouter::new(r)), request: None };
 
         let mut bytes = BytesMut::from(RAW_GET.as_ref());
         bytes.extend_from_slice(RAW_HEADER.as_ref());
@@ -447,8 +455,8 @@ mod tests {
             let o = r.unwrap();
             assert_that(&o).is_some();
             match o.unwrap() {
-                DecodingResult::Ok((req, _, _)) => {
-                    let (_, body) = req.into_parts();
+                DecodingResult::Ok(res) => {
+                    let (_, body) = res.request.into_parts();
                     let b = body.into_inner().unwrap();
                     let body_string = String::from_utf8(b).unwrap();
                     assert_eq!("Hello World", body_string);
@@ -464,7 +472,7 @@ mod tests {
         let mut r = Router::new();
         r.get("/", handle);
 
-        let mut codec = HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(r), request: None };
+        let mut codec = HttpCodec { config: HttpCodecCfg::default(), router: Arc::new(InternalRouter::new(r)), request: None };
 
         let mut bytes = BytesMut::from(RAW_GET.as_ref());
         bytes.extend_from_slice(RAW_HEADER.as_ref());
@@ -477,8 +485,8 @@ mod tests {
         let o = r.unwrap();
         assert_that(&o).is_some();
         match o.unwrap() {
-            DecodingResult::Ok((req, _, _)) => {
-                let (_, body) = req.into_parts();
+            DecodingResult::Ok(res) => {
+                let (_, body) = res.request.into_parts();
                 let b = body.into_inner().unwrap();
                 let body_string = String::from_utf8(b).unwrap();
                 assert_eq!("Hello", body_string);

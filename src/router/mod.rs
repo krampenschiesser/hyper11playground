@@ -14,52 +14,28 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct Router {
-    routes: HashMap<Method, Recognizer<Route>>,
+    intial: HashMap<(Method, String), Route>,
 }
 
-impl Router {
-    pub fn new() -> Self {
-        Router { routes: HashMap::new() }
+pub struct InternalRouter {
+    routes: HashMap<Method, Recognizer<Arc<Route>>>,
+}
+
+impl InternalRouter {
+    pub fn new(router: Router) -> Self {
+        let mut r = InternalRouter { routes: HashMap::new() };
+
+        for (key, route) in router.intial.into_iter() {
+            r.routes.entry(key.0.clone()).or_insert(Recognizer::new()).add(key.1.as_ref(), Arc::new(route));
+        }
+        r
     }
 
-    pub fn add<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, method: Method, path: P, h: H) {
-        let path = path.into();
-        let route = Route {
-            path: path.clone(),
-            callback: Arc::new(Box::new(h)),
-            method: method.clone()
-        };
-
-        self.routes.entry(method.clone()).or_insert(Recognizer::new()).add(path.as_ref(), route);
-    }
-
-    pub fn get<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        self.add(Method::GET, path, h)
-    }
-    pub fn put<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        self.add(Method::PUT, path, h)
-    }
-    pub fn post<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        self.add(Method::POST, path, h)
-    }
-    pub fn delete<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        self.add(Method::DELETE, path, h)
-    }
-    pub fn options<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        self.add(Method::OPTIONS, path, h)
-    }
-    pub fn head<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        self.add(Method::HEAD, path, h)
-    }
-    pub fn patch<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) {
-        self.add(Method::PATCH, path, h)
-    }
-
-    pub fn resolve<S: AsRef<str>>(&self, method: &Method, path: S) -> Option<(&Route, Params)> {
+    pub fn resolve<S: AsRef<str>>(&self, method: &Method, path: S) -> Option<(Arc<Route>, Params)> {
         if let Some(found) = self.routes.get(method) {
             match found.recognize(path.as_ref()) {
                 Ok(matching) => {
-                    Some((matching.handler, matching.params))
+                    Some((matching.handler.clone(), matching.params))
                 }
                 Err(msg) => {
                     warn!("Found no handler for {} {}: {}", method, path.as_ref(), msg);
@@ -72,10 +48,60 @@ impl Router {
     }
 }
 
+impl Router {
+    pub fn new() -> Self {
+        Router { intial: HashMap::new() }
+    }
+
+    pub fn add<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, method: Method, path: P, h: H) -> &mut Route {
+        let path = path.into();
+        let route = Route {
+            path: path.clone(),
+            callback: Arc::new(Box::new(h)),
+            method: method.clone(),
+            async: match method {
+                Method::GET | Method::OPTIONS => Threading::SAME,
+                _ => Threading::SEPERATE,
+            },
+        };
+
+        self.intial.insert((method.clone(), path.clone()), route);
+        self.intial.get_mut(&(method.clone(), path.clone())).unwrap()
+    }
+
+    pub fn get<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
+        self.add(Method::GET, path, h)
+    }
+    pub fn put<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
+        self.add(Method::PUT, path, h)
+    }
+    pub fn post<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
+        self.add(Method::POST, path, h)
+    }
+    pub fn delete<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
+        self.add(Method::DELETE, path, h)
+    }
+    pub fn options<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
+        self.add(Method::OPTIONS, path, h)
+    }
+    pub fn head<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
+        self.add(Method::HEAD, path, h)
+    }
+    pub fn patch<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
+        self.add(Method::PATCH, path, h)
+    }
+}
+
 pub struct Route {
     pub path: String,
     pub method: Method,
-    pub callback: Arc<Box<Handler>>
+    pub callback: Arc<Box<Handler>>,
+    pub async: Threading,
+}
+
+pub enum Threading {
+    SAME,
+    SEPERATE
 }
 
 impl Route {
@@ -142,6 +168,7 @@ mod tests {
 
         router.get("/hello", handler);
 
+        let router = InternalRouter::new(router);
         let r = router.resolve(&Method::GET, "/helloNone");
         assert!(r.is_none());
 
@@ -168,6 +195,7 @@ mod tests {
         router.get("/hello/wild/*card", HandlerStruct::default());
         router.get("/hello/:param1", HandlerStruct::default());
         router.get("/hello/:param1/bla/:param2", HandlerStruct::default());
+        let router = InternalRouter::new(router);
 
         assert!(router.resolve(&Method::GET, "/hello").is_none());
         has_param(router.resolve(&Method::GET, "/hello/val1").unwrap().1, "param1", "val1");
@@ -185,6 +213,7 @@ mod tests {
     fn hello_world_test() {
         let mut router = Router::new();
         router.get("/hello/:hello", HandlerStruct::default());
+        let router = InternalRouter::new(router);
         has_param(router.resolve(&Method::GET, "/hello/val1").unwrap().1, "hello", "val1");
     }
 }

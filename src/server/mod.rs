@@ -13,7 +13,7 @@ use tokio_service::Service;
 use tokio_proto::TcpServer;
 use ::request::Request;
 use ::body::Body;
-use ::router::Router;
+use ::router::{Router,InternalRouter};
 use state::Container;
 use std::sync::atomic::{AtomicBool, Ordering};
 use native_tls::Pkcs12;
@@ -24,11 +24,11 @@ use std::sync::Arc;
 mod codec;
 pub mod tester;
 
-use self::codec::{Http, HttpCodecCfg, DecodingResult};
+use self::codec::{Http, HttpCodecCfg, DecodingResult, DecodedRequest};
 
 pub struct Server {
     addr: SocketAddr,
-    router: Arc<Router>,
+    router: Arc<InternalRouter>,
     state: Arc<Container>,
     stopper: ServerStopper,
 }
@@ -61,16 +61,18 @@ impl Service for InternalServer {
     type Future = future::Ok<Self::Response, io::Error>;
 
     fn call(&self, req: DecodingResult) -> Self::Future {
-        let (req, handler, params) = match req {
+        let dec_req = match req {
             DecodingResult::BodyTooLarge => return future::ok(HttpError::bad_request("Request too large").into()),
             DecodingResult::HeaderTooLarge => return future::ok(HttpError::bad_request("Header too large").into()),
             DecodingResult::RouteNotFound => return future::ok(HttpError::not_found(Some("Route not found")).into()),
             DecodingResult::Ok(res) => res
         };
+        let DecodedRequest { request: req, route, params } = dec_req;
+
         debug!("Got request {:?}", req);
 
         let mut request = Request::new(req, &self.state, params);
-        let res = handler.handle(&mut request);
+        let res = route.callback.handle(&mut request);
 
         match res {
             Ok(resp) => {
@@ -87,7 +89,8 @@ impl Service for InternalServer {
 
 impl Server {
     pub fn new(addr: SocketAddr, r: Router) -> Self {
-        Server { stopper: ServerStopper::default(), addr: addr, router: Arc::new(r), state: Arc::new(Container::new()) }
+        let internal_router = InternalRouter::new(r);
+        Server { stopper: ServerStopper::default(), addr: addr, router: Arc::new(internal_router), state: Arc::new(Container::new()) }
     }
 
     pub fn start_http_non_blocking(self) -> Result<ServerStopper, ()> {
@@ -101,7 +104,7 @@ impl Server {
     pub fn start_testing(self) -> self::tester::ServerTester {
         use self::tester::ServerTester;
 
-        ServerTester::new(self.router ,self.state)
+        ServerTester::new(self.router, self.state)
     }
 
     pub fn start_http(self) {
@@ -154,6 +157,6 @@ impl Server {
 
 impl Default for Server {
     fn default() -> Self {
-        Server { stopper: ServerStopper::default(), addr: "127.0.0.1:8080".parse().unwrap(), router: Arc::new(Router::new()), state: Arc::new(Container::new()) }
+        Server { stopper: ServerStopper::default(), addr: "127.0.0.1:8080".parse().unwrap(), router: Arc::new(InternalRouter::new(Router::new())), state: Arc::new(Container::new()) }
     }
 }
