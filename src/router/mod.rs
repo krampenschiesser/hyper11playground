@@ -177,7 +177,7 @@ mod tests {
 
         let req = request(Method::GET, ::http::Uri::default());
         let c = ::state::Container::new();
-        let mut r = Request::new(req, &c, Params::new());
+        let mut r = Request::new(req, Arc::new(c), Params::new());
         (*handler).handle(&mut r).unwrap();
     }
 

@@ -13,7 +13,7 @@ use tokio_service::Service;
 use tokio_proto::TcpServer;
 use ::request::Request;
 use ::body::Body;
-use ::router::{Threading, Router, InternalRouter};
+use ::router::{Threading, Router, Route, InternalRouter};
 use state::Container;
 use std::sync::atomic::{AtomicBool, Ordering};
 use native_tls::Pkcs12;
@@ -58,43 +58,46 @@ impl Default for ServerStopper {
     }
 }
 
+use futures::Future;
+
 impl Service for InternalServer {
     type Request = DecodingResult;
     type Response = Response<Body>;
     type Error = io::Error;
-    type Future = future::Ok<Self::Response, io::Error>;
+    type Future = Box<Future<Item=Response<Body>, Error=io::Error>>;
 
     fn call(&self, req: DecodingResult) -> Self::Future {
         let dec_req = match req {
-            DecodingResult::BodyTooLarge => return future::ok(HttpError::bad_request("Request too large").into()),
-            DecodingResult::HeaderTooLarge => return future::ok(HttpError::bad_request("Header too large").into()),
-            DecodingResult::RouteNotFound => return future::ok(HttpError::not_found(Some("Route not found")).into()),
+            DecodingResult::BodyTooLarge => return Box::new(future::ok(HttpError::bad_request("Request too large").into())),
+            DecodingResult::HeaderTooLarge => return Box::new(future::ok(HttpError::bad_request("Header too large").into())),
+            DecodingResult::RouteNotFound => return Box::new(future::ok(HttpError::not_found(Some("Route not found")).into())),
             DecodingResult::Ok(res) => res
         };
 
-        //        self.pool.spawn()
-
         let DecodedRequest { request: req, route, params } = dec_req;
         debug!("Got request {:?}", req);
+        let state = self.state.clone();
+        let local_route = route.clone();
 
-        let r = || {
-            let mut request = Request::new(req, &self.state, params);
-            let res = route.callback.handle(&mut request);
+        let r = move || {
+            let mut request = Request::new(req, state, params);
+            let res = local_route.callback.handle(&mut request);
 
             match res {
                 Ok(resp) => {
                     trace!("Successfully handled request. Response: {:?}", &resp);
-                    Ok(resp.into_inner())
+                    future::ok(resp.into_inner())
                 }
                 Err(err) => {
                     warn!("Failed to handle {:?}", &err);
-                    Ok(::response::Response::from(err).into_inner())
+                    future::ok(::response::Response::from(err).into_inner())
                 }
             }
         };
+
         match route.threading {
-            Threading::SEPERATE => self.pool.spawn_fn(r),
-            Threading::SAME => future::ok(r())
+            Threading::SAME => Box::new(r() ),
+            Threading::SEPERATE => Box::new(self.pool.spawn_fn(r)),
         }
     }
 }

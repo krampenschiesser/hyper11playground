@@ -34,7 +34,7 @@ impl ServerTester {
             None => return HttpError::not_found(Some(req.uri().path())).into(),
         };
 
-        let mut r = RestRequest::new(req, &self.state, param.into());
+        let mut r = RestRequest::new(req, self.state.clone(), param.into());
 
         let response: ::response::Response = match route.callback.handle(&mut r) {
             Ok(response) => response,

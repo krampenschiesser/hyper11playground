@@ -11,6 +11,7 @@ use state::Container;
 use http::Request as HttpRequest;
 use std::ops::Deref;
 use ::body::Body;
+use std::sync::Arc;
 
 mod params;
 
@@ -18,21 +19,21 @@ pub use self::params::Params;
 
 
 #[derive(Debug)]
-pub struct Request<'r> {
+pub struct Request {
     inner: HttpRequest<Body>,
-    state: StateHolder<'r>,
+    state: StateHolder,
     params: Params,
     query: HashMap<String, Vec<String>>,
     remote_addr: Option<::std::net::SocketAddr>,
 }
 
-enum StateHolder<'r> {
+enum StateHolder {
     None,
-    Some(&'r Container)
+    Some(Arc<Container>)
 }
 
 
-impl<'r> ::std::fmt::Debug for StateHolder<'r> {
+impl ::std::fmt::Debug for StateHolder {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         match self {
             &StateHolder::None => write!(f, "no state"),
@@ -41,7 +42,7 @@ impl<'r> ::std::fmt::Debug for StateHolder<'r> {
     }
 }
 
-impl<'r> Default for Request<'r> {
+impl Default for Request {
     fn default() -> Self {
         Request {
             inner: HttpRequest::default(),
@@ -54,8 +55,8 @@ impl<'r> Default for Request<'r> {
 }
 
 
-impl<'r> Request<'r> {
-    pub fn new(req: HttpRequest<Body>, state: &'r Container, params: Params) -> Self {
+impl Request {
+    pub fn new(req: HttpRequest<Body>, state: Arc<Container>, params: Params) -> Self {
         let query = Request::parse_query(req.uri().query());
         Request { inner: req, params, state: StateHolder::Some(state), query, remote_addr: None }
     }
@@ -109,11 +110,13 @@ impl<'r> Request<'r> {
     pub fn get_state<T: Send + Sync + 'static>(&self) -> Option<&T> {
         match self.state {
             StateHolder::None => None,
-            StateHolder::Some(state) => state.try_get(),
+            StateHolder::Some(ref state) => {
+                state.try_get()
+            },
         }
     }
 
-    pub fn set_state<T: Send + Sync + 'static>(&mut self, state: &'r Container) {
+    pub fn set_state<T: Send + Sync + 'static>(&mut self, state: Arc<Container>) {
         self.state = StateHolder::Some(state);
     }
 
@@ -136,7 +139,7 @@ impl<'r> Request<'r> {
         let hname = match HeaderName::from_str(name) {
             Ok(n) => n,
             Err(e) => {
-                warn!("Could not parse header name {}: {:?}", name,e);
+                warn!("Could not parse header name {}: {:?}", name, e);
                 return None;
             }
         };
@@ -149,7 +152,7 @@ impl<'r> Request<'r> {
     //    }
 }
 
-impl<'r> Deref for Request<'r> {
+impl Deref for Request{
     type Target = HttpRequest<Body>;
 
     fn deref(&self) -> &Self::Target {
@@ -171,7 +174,7 @@ mod tests {
         *r.method_mut() = Method::GET;
         *r.uri_mut() = Uri::from_str("/bla?hallo=welt&hallo=blubb").unwrap();
 
-        let req = Request::new(r, &c, Params::new());
+        let req = Request::new(r, Arc::new(c), Params::new());
         assert_eq!("welt", req.query_first("hallo").unwrap());
         assert_eq!(None, req.query_first("ne"));
         assert_eq!(2, req.query("hallo").unwrap().len());
