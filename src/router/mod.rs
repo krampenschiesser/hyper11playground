@@ -59,7 +59,7 @@ impl Router {
             path: path.clone(),
             callback: Arc::new(Box::new(h)),
             method: method.clone(),
-            async: match method {
+            threading: match method {
                 Method::GET | Method::OPTIONS => Threading::SAME,
                 _ => Threading::SEPERATE,
             },
@@ -96,7 +96,7 @@ pub struct Route {
     pub path: String,
     pub method: Method,
     pub callback: Arc<Box<Handler>>,
-    pub async: Threading,
+    pub threading: Threading,
 }
 
 pub enum Threading {

@@ -16,6 +16,7 @@ extern crate route_recognizer;
 extern crate serde;
 extern crate serde_json;
 extern crate futures;
+extern crate futures_cpupool;
 #[macro_use]
 extern crate log;
 extern crate native_tls;

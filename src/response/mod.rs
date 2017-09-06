@@ -135,7 +135,6 @@ impl From<::http::StatusCode> for Response {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

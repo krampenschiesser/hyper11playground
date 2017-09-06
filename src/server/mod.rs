@@ -13,13 +13,14 @@ use tokio_service::Service;
 use tokio_proto::TcpServer;
 use ::request::Request;
 use ::body::Body;
-use ::router::{Router,InternalRouter};
+use ::router::{Threading, Router, InternalRouter};
 use state::Container;
 use std::sync::atomic::{AtomicBool, Ordering};
 use native_tls::Pkcs12;
 use ::error::HttpError;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use futures_cpupool::{CpuPool, Builder as PoolBuilder};
 
 mod codec;
 pub mod tester;
@@ -27,13 +28,16 @@ pub mod tester;
 use self::codec::{Http, HttpCodecCfg, DecodingResult, DecodedRequest};
 
 pub struct Server {
+    pool: CpuPool,
     addr: SocketAddr,
     router: Arc<InternalRouter>,
     state: Arc<Container>,
     stopper: ServerStopper,
+    codec_cfg: HttpCodecCfg,
 }
 
 struct InternalServer {
+    pool: CpuPool,
     state: Arc<Container>,
 }
 
@@ -67,22 +71,30 @@ impl Service for InternalServer {
             DecodingResult::RouteNotFound => return future::ok(HttpError::not_found(Some("Route not found")).into()),
             DecodingResult::Ok(res) => res
         };
-        let DecodedRequest { request: req, route, params } = dec_req;
 
+        //        self.pool.spawn()
+
+        let DecodedRequest { request: req, route, params } = dec_req;
         debug!("Got request {:?}", req);
 
-        let mut request = Request::new(req, &self.state, params);
-        let res = route.callback.handle(&mut request);
+        let r = || {
+            let mut request = Request::new(req, &self.state, params);
+            let res = route.callback.handle(&mut request);
 
-        match res {
-            Ok(resp) => {
-                trace!("Successfully handled request. Response: {:?}", &resp);
-                future::ok(resp.into_inner())
+            match res {
+                Ok(resp) => {
+                    trace!("Successfully handled request. Response: {:?}", &resp);
+                    Ok(resp.into_inner())
+                }
+                Err(err) => {
+                    warn!("Failed to handle {:?}", &err);
+                    Ok(::response::Response::from(err).into_inner())
+                }
             }
-            Err(err) => {
-                warn!("Failed to handle {:?}", &err);
-                future::ok(::response::Response::from(err).into_inner())
-            }
+        };
+        match route.threading {
+            Threading::SEPERATE => self.pool.spawn_fn(r),
+            Threading::SAME => future::ok(r())
         }
     }
 }
@@ -90,7 +102,16 @@ impl Service for InternalServer {
 impl Server {
     pub fn new(addr: SocketAddr, r: Router) -> Self {
         let internal_router = InternalRouter::new(r);
-        Server { stopper: ServerStopper::default(), addr: addr, router: Arc::new(internal_router), state: Arc::new(Container::new()) }
+        let pool = PoolBuilder::new().name_prefix("RIR_Worker").pool_size(20).create();
+        Server { codec_cfg: HttpCodecCfg::default(), stopper: ServerStopper::default(), addr: addr, router: Arc::new(internal_router), state: Arc::new(Container::new()), pool }
+    }
+
+    pub fn set_codec_cfg(&mut self, cfg: HttpCodecCfg) {
+        self.codec_cfg = cfg;
+    }
+
+    pub fn set_thread_pool_size(&mut self, size: usize) {
+        self.pool = PoolBuilder::new().name_prefix("RIR_Worker").pool_size(size).create();
     }
 
     pub fn start_http_non_blocking(self) -> Result<ServerStopper, ()> {
@@ -110,12 +131,11 @@ impl Server {
     pub fn start_http(self) {
         //fixme currently shutdown not supported by tcpserver, next version  -> Result<ServerStopper, ()> {
         let addr = self.addr.clone();
-        let router = self.router;
         let state = self.state;
-        let stopper = self.stopper;
-        state.set(stopper);
-        let http = Http { router: router.clone(), config: HttpCodecCfg::default() };
-        TcpServer::new(http, addr).serve(move || Ok(InternalServer { state: state.clone() }));
+        state.set(self.stopper);
+        let http = Http { router: self.router.clone(), config: self.codec_cfg };
+        let pool = self.pool;
+        TcpServer::new(http, addr).serve(move || Ok(InternalServer { state: state.clone(), pool: pool.clone() }));
 
         //        let stopper = ServerStopper { stop: Arc::new(::std::sync::atomic::AtomicBool::new(false)) };
         //        Ok(stopper)
@@ -131,13 +151,14 @@ impl Server {
             .build().unwrap();
 
         let router = self.router;
-        let http = Http { router: router.clone(), config: HttpCodecCfg::default() };
+        let http = Http { router: router.clone(), config: self.codec_cfg };
         let proto = proto::Server::new(http, tls_cx);
 
         let addr = self.addr.clone();
         let srv = TcpServer::new(proto, addr);
         let state = self.state;
-        srv.serve(move || Ok(InternalServer { state: state.clone() }));
+        let pool = self.pool;
+        srv.serve(move || Ok(InternalServer { state: state.clone(), pool: pool.clone() }));
 
         //        Ok(ServerStopper::default())
     }
@@ -157,6 +178,13 @@ impl Server {
 
 impl Default for Server {
     fn default() -> Self {
-        Server { stopper: ServerStopper::default(), addr: "127.0.0.1:8080".parse().unwrap(), router: Arc::new(InternalRouter::new(Router::new())), state: Arc::new(Container::new()) }
+        Server {
+            pool: PoolBuilder::new().name_prefix("RIR_Worker").pool_size(20).create(),
+            codec_cfg: HttpCodecCfg::default(),
+            stopper: ServerStopper::default(),
+            addr: "127.0.0.1:8080".parse().unwrap(),
+            router: Arc::new(InternalRouter::new(Router::new())),
+            state: Arc::new(Container::new())
+        }
     }
 }
