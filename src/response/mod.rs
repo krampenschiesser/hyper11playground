@@ -18,11 +18,14 @@ pub struct Response {
 }
 
 impl Response {
+    pub fn from_http(inner: HttpResponse<Body>) -> Self {
+        Response { inner }
+    }
     pub fn builder() -> ResponseBuilder {
         ResponseBuilder::default()
     }
 
-    pub fn moved_permanent<T: AsRef< str>>(url: T) -> Result<Response, ::error::HttpError> {
+    pub fn moved_permanent<T: AsRef<str>>(url: T) -> Result<Response, ::error::HttpError> {
         let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
         Response::builder()
             .status(StatusCode::MOVED_PERMANENTLY)
@@ -111,6 +114,24 @@ impl From<String> for Response {
         let mut builder = HttpResponse::builder();
         builder.status(StatusCode::OK);
         let x = builder.body(Body(Some(val.into()))).unwrap(); // in the code only Ok is used
+        Response { inner: x }
+    }
+}
+
+impl From<Vec<u8>> for Response {
+    fn from(val: Vec<u8>) -> Self {
+        let mut builder = HttpResponse::builder();
+        builder.status(StatusCode::OK);
+        let x = builder.body(Body(Some(val))).unwrap(); // in the code only Ok is used
+        Response { inner: x }
+    }
+}
+
+impl<'r> From<&'r [u8]> for Response {
+    fn from(val: &'r [u8]) -> Self {
+        let mut builder = HttpResponse::builder();
+        builder.status(StatusCode::OK);
+        let x = builder.body(Body(Some(val.to_vec()))).unwrap(); // in the code only Ok is used
         Response { inner: x }
     }
 }

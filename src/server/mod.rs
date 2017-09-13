@@ -13,7 +13,7 @@ use tokio_service::Service;
 use tokio_proto::TcpServer;
 use ::request::Request;
 use ::body::Body;
-use ::router::{Threading, Router, Route, InternalRouter};
+use ::router::{Threading, Router, InternalRouter};
 use state::Container;
 use std::sync::atomic::{AtomicBool, Ordering};
 use native_tls::Pkcs12;
@@ -21,6 +21,7 @@ use ::error::HttpError;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use futures_cpupool::{CpuPool, Builder as PoolBuilder};
+use mime_sniffer::MimeTypeSniffer;
 
 mod codec;
 pub mod tester;
@@ -82,6 +83,11 @@ impl Service for InternalServer {
         let r = move || {
             let mut request = Request::new(req, state, params);
             let res = local_route.callback.handle(&mut request);
+            let res = if let Ok(res) = res {
+                Ok(enhance_content_type(res))
+            } else {
+                res
+            };
 
             match res {
                 Ok(resp) => {
@@ -96,10 +102,38 @@ impl Service for InternalServer {
         };
 
         match route.threading {
-            Threading::SAME => Box::new(r() ),
+            Threading::SAME => Box::new(r()),
             Threading::SEPERATE => Box::new(self.pool.spawn_fn(r)),
         }
     }
+}
+
+fn enhance_content_type(response: ::response::Response) -> ::response::Response {
+    let mut resp = response.into_inner();
+    let key = ::http::header::CONTENT_TYPE;
+    let no_content_type = {
+        resp.headers().get(&key).is_none()
+    };
+    if no_content_type {
+        let hv: Option<::http::header::HeaderValue> = match resp.body().inner() {
+            &Some(ref vec) => {
+                let mime_type = vec.sniff_mime_type();
+                debug!("Found mime type {:?} for {:?}",mime_type, resp.body());
+                match mime_type {
+                    Some(mime_type) => {
+                        let r = ::http::header::HeaderValue::from_str(mime_type);
+                        r.ok()
+                    }
+                    None => None,
+                }
+            }
+            &None => None,
+        };
+        if let Some(hv) = hv {
+            resp.headers_mut().insert(key, hv);
+        }
+    }
+    ::response::Response::from_http(resp)
 }
 
 impl Server {
@@ -188,6 +222,36 @@ impl Default for Server {
             addr: "127.0.0.1:8080".parse().unwrap(),
             router: Arc::new(InternalRouter::new(Router::new())),
             state: Arc::new(Container::new())
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_guess_content_type() {
+        test_content_type(None, b"<body");
+        test_content_type(None, b"<note><to>Tove</to></note>s");
+        test_content_type(None, b"@font-face{font-family:Work ");
+    }
+
+    fn test_content_type(content_type: Option<&str>, body: &[u8]) {
+        let resp = ::response::Response::from(body);
+
+        let resp = enhance_content_type(resp);
+        let o = resp.headers().get(::http::header::CONTENT_TYPE);
+
+        match content_type {
+            Some(content_type) => {
+                let h = ::http::header::HeaderValue::from_str(content_type).unwrap();
+                assert_eq!(Some(&h), o)
+            }
+            None => {
+                assert_eq!(None, o)
+            }
         }
     }
 }

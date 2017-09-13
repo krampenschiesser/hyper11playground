@@ -10,6 +10,7 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
 #![feature(try_from)]
+#![feature(conservative_impl_trait)]
 
 extern crate url;
 extern crate route_recognizer;
@@ -24,7 +25,7 @@ extern crate tokio_tls;
 extern crate tokio_service;
 extern crate tokio_proto;
 extern crate state;
-
+extern crate mime_sniffer;
 extern crate http;
 
 extern crate tokio_io;
