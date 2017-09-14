@@ -27,8 +27,7 @@ fn post_json(req: &mut Request) -> Result<Response, HttpError> {
 
 fn get_json(_: &mut Request) -> Result<Response, HttpError> {
     let obj = Hello { world: "Hello Sauerland".into() };
-    let serialized = serde_json::to_string(&obj).unwrap();
-    Ok(serialized.into())
+    Ok(Response::try_from_json(obj?))
 }
 
 fn main() {

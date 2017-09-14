@@ -21,6 +21,10 @@ impl Response {
     pub fn from_http(inner: HttpResponse<Body>) -> Self {
         Response { inner }
     }
+    pub fn try_from_json<T: ::serde::Serialize>(data: T) -> Result<Self,::error::HttpError> {
+        let serialized = ::serde_json::to_string(&data)?;
+        Ok(serialized.into())
+    }
     pub fn builder() -> ResponseBuilder {
         ResponseBuilder::default()
     }
