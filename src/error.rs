@@ -31,8 +31,8 @@ impl ::std::error::Error for HttpError {
 }
 
 impl HttpError {
-    pub fn not_found<S: Into<String>>(resource: Option<S>) -> Self {
-        let msg: String = resource.map(|x| x.into()).unwrap_or("".into());
+    pub fn not_found<S: Into<String>>(resource: S) -> Self {
+        let msg: String = resource.into();
         Self::internal_error(StatusCode::NOT_FOUND, msg)
     }
 

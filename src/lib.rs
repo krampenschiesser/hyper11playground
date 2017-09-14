@@ -7,8 +7,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
 #![feature(try_from)]
 #![feature(conservative_impl_trait)]
 
@@ -26,8 +26,9 @@ extern crate tokio_service;
 extern crate tokio_proto;
 extern crate state;
 extern crate mime_sniffer;
+extern crate mime_guess;
 extern crate http;
-
+extern crate notify;
 extern crate tokio_io;
 extern crate bytes;
 extern crate httparse;
@@ -45,12 +46,12 @@ pub mod error;
 pub mod traits;
 pub mod body;
 
-pub use router::Router;
+pub use router::{Router,ChangeDetection};
 pub use error::HttpError;
 pub use handler::Handler;
 pub use request::Request;
 pub use response::Response;
-pub use server::{Server};
+pub use server::Server;
 pub use server::tester::ServerTester;
 pub use traits::{FromRequest, FromRequestAsRef};
-pub use body::{Body};
+pub use body::Body;

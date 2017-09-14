@@ -41,6 +41,8 @@ log = "0.3.8"
 state = "0.3.1"
 http = { git = 'https://github.com/carllerche/http' }
 mime-sniffer = "^0.1"
+mime_guess = "1.8.2"
+notify = "4.0.1"
 
 [dev-dependencies]
 reqwest = "0.7.1" #should be in dev dependencies

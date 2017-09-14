@@ -71,7 +71,7 @@ impl Service for InternalServer {
         let dec_req = match req {
             DecodingResult::BodyTooLarge => return Box::new(future::ok(HttpError::bad_request("Request too large").into())),
             DecodingResult::HeaderTooLarge => return Box::new(future::ok(HttpError::bad_request("Header too large").into())),
-            DecodingResult::RouteNotFound => return Box::new(future::ok(HttpError::not_found(Some("Route not found")).into())),
+            DecodingResult::RouteNotFound => return Box::new(future::ok(HttpError::not_found("Route not found").into())),
             DecodingResult::Ok(res) => res
         };
 

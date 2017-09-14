@@ -12,6 +12,11 @@ use route_recognizer::Router as Recognizer;
 use route_recognizer::Params;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::path::PathBuf;
+
+mod staticfile;
+
+pub use self::staticfile::{ChangeDetection,EvictionPolicy};
 
 pub struct Router {
     intial: HashMap<(Method, String), Route>,
@@ -89,6 +94,42 @@ impl Router {
     }
     pub fn patch<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
         self.add(Method::PATCH, path, h)
+    }
+
+    pub fn static_file<R, H, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection) -> &mut Route
+        where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
+        let path_buf = file_path.into();
+        if !path_buf.is_file() {
+            panic!("Given path should be a file: {:?}", path_buf)
+        }
+        self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf))
+    }
+
+    pub fn static_folder<R, H, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection) -> &mut Route
+        where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
+        let path_buf = file_path.into();
+        if !path_buf.is_dir() {
+            panic!("Given path should be a folder: {:?}", path_buf)
+        }
+        let url_string = url_path.into();
+        let mut total_string = String::new();
+        total_string.push_str(url_string.as_str());
+
+        let o = url_string.as_bytes().iter().rev().next();
+        let extension = match o {
+            Some(b) => {
+                let x = &b'/';
+                if b == x {
+                    "*file"
+                } else {
+                    "/*file"
+                }
+            }
+            None => "/*file",
+        };
+        total_string.push_str(extension.as_ref());
+
+        self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf))
     }
 }
 
