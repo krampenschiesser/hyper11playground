@@ -13,22 +13,25 @@ use route_recognizer::Params;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::path::PathBuf;
+use self::staticfile::StaticFileCache;
 
 mod staticfile;
 
-pub use self::staticfile::{ChangeDetection,EvictionPolicy};
+pub use self::staticfile::{ChangeDetection, EvictionPolicy};
 
 pub struct Router {
+    static_file_cache: Arc<StaticFileCache>,
     intial: HashMap<(Method, String), Route>,
 }
 
 pub struct InternalRouter {
+    static_file_cache: Arc<StaticFileCache>,
     routes: HashMap<Method, Recognizer<Arc<Route>>>,
 }
 
 impl InternalRouter {
     pub fn new(router: Router) -> Self {
-        let mut r = InternalRouter { routes: HashMap::new() };
+        let mut r = InternalRouter { routes: HashMap::new(), static_file_cache: router.static_file_cache };
 
         for (key, route) in router.intial.into_iter() {
             r.routes.entry(key.0.clone()).or_insert(Recognizer::new()).add(key.1.as_ref(), Arc::new(route));
@@ -55,7 +58,11 @@ impl InternalRouter {
 
 impl Router {
     pub fn new() -> Self {
-        Router { intial: HashMap::new() }
+        Router { intial: HashMap::new(), static_file_cache: Arc::new(StaticFileCache::new()) }
+    }
+
+    pub fn set_static_file_cache_size(&mut self, size: usize) {
+        self.static_file_cache = Arc::new(StaticFileCache::with_max_size(size));
     }
 
     pub fn add<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, method: Method, path: P, h: H) -> &mut Route {
@@ -102,7 +109,8 @@ impl Router {
         if !path_buf.is_file() {
             panic!("Given path should be a file: {:?}", path_buf)
         }
-        self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf))
+        let cache = self.static_file_cache.clone();
+        self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf, cache))
     }
 
     pub fn static_folder<R, H, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection) -> &mut Route
@@ -129,7 +137,8 @@ impl Router {
         };
         total_string.push_str(extension.as_ref());
 
-        self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf))
+        let cache = self.static_file_cache.clone();
+        self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf, cache))
     }
 }
 

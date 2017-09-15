@@ -32,7 +32,7 @@ extern crate notify;
 extern crate tokio_io;
 extern crate bytes;
 extern crate httparse;
-
+extern crate sha1;
 #[cfg(test)]
 extern crate spectral;
 

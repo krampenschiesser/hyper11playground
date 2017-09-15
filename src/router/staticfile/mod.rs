@@ -10,5 +10,5 @@
 pub mod cache;
 pub mod handler;
 
-pub use self::cache::{EvictionPolicy,ChangeDetection};
+pub use self::cache::{StaticFileCache, EvictionPolicy, ChangeDetection};
 pub use self::handler::StaticFileHandler;

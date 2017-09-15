@@ -15,14 +15,19 @@ use handler::Handler;
 use response::Response;
 use error::HttpError;
 use request::Request;
+use super::cache::{StaticFileCache,EvictionPolicy,ChangeDetection};
+use std::sync::Arc;
 
 pub struct StaticFileHandler {
     path: PathBuf,
+    cache: Arc<StaticFileCache>,
+    eviction_policy: EvictionPolicy,
+
 }
 
 impl StaticFileHandler {
-    pub fn new<T: Into<PathBuf>>(path: T) -> Self {
-        StaticFileHandler { path: path.into() }
+    pub fn new<T: Into<PathBuf>>(path: T, cache: Arc<StaticFileCache>, ) -> Self {
+        StaticFileHandler { path: path.into(), cache }
     }
 }
 
@@ -37,16 +42,9 @@ impl Handler for StaticFileHandler {
 
             file_in_dir.push(file_name);
 
-            if !file_in_dir.exists() {
-                error!("Could not find file {:?}", file_in_dir);
-                return Err(HttpError::not_found(format!("File {} not found.", file_name)));
-            }
-
-            let mut data = Vec::new();
-            let mut file = File::open(file_in_dir.clone())?;
-            let read = file.read_to_end(&mut data)?;
-            debug!("Read {} bytes from {:?}", read, file_in_dir);
-        } else {}
-        Err(HttpError::not_found(format!("File not found.")))
+            self.cache.get_or_load(&file_in_dir)
+        } else {
+            self.cache.get_or_load(&self.path)
+        }
     }
 }
