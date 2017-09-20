@@ -21,20 +21,22 @@ pub use self::staticfile::{ChangeDetection, EvictionPolicy};
 
 pub struct Router {
     static_file_cache: Arc<StaticFileCache>,
-    intial: HashMap<(Method, String), Route>,
+    intial: Vec<Route>,
 }
 
 pub struct InternalRouter {
-//    static_file_cache: Arc<StaticFileCache>,
+    //    static_file_cache: Arc<StaticFileCache>,
     routes: HashMap<Method, Recognizer<Arc<Route>>>,
 }
 
 impl InternalRouter {
     pub fn new(router: Router) -> Self {
-        let mut r = InternalRouter { routes: HashMap::new(), };// static_file_cache: router.static_file_cache
+        let mut r = InternalRouter { routes: HashMap::new() };// static_file_cache: router.static_file_cache
 
-        for (key, route) in router.intial.into_iter() {
-            r.routes.entry(key.0.clone()).or_insert(Recognizer::new()).add(key.1.as_ref(), Arc::new(route));
+        for route in router.intial.into_iter() {
+            let method = route.method.clone();
+            let path = route.path.clone();
+            r.routes.entry(method).or_insert(Recognizer::new()).add(path.as_ref(), Arc::new(route));
         }
         r
     }
@@ -58,7 +60,7 @@ impl InternalRouter {
 
 impl Router {
     pub fn new() -> Self {
-        Router { intial: HashMap::new(), static_file_cache: Arc::new(StaticFileCache::new()) }
+        Router { intial: Vec::new(), static_file_cache: Arc::new(StaticFileCache::new()) }
     }
 
     pub fn set_static_file_cache_size(&mut self, size: usize) {
@@ -77,8 +79,10 @@ impl Router {
             },
         };
 
-        self.intial.insert((method.clone(), path.clone()), route);
-        self.intial.get_mut(&(method.clone(), path.clone())).unwrap()
+
+        self.intial.push(route);
+        let index = self.intial.len() - 1;
+        self.intial.get_mut(index).unwrap()
     }
 
     pub fn get<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
