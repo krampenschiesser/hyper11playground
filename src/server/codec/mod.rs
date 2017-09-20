@@ -300,25 +300,25 @@ impl Encoder for HttpCodec {
         buf.put(status_line.as_bytes());
         for (key, value) in msg.headers().iter() {
             let val: &[u8] = key.as_ref();
-            buf.put(val);
-            buf.put_slice(b": ");
+            buf.extend_from_slice(val);
+            buf.extend_from_slice(b": ");
             let val: &[u8] = value.as_ref();
-            buf.put(val);
-            buf.put_slice(b"\r\n");
+            buf.extend_from_slice(val);
+            buf.extend_from_slice(b"\r\n");
         }
 
         let length_header = msg.headers().iter().find(|h| h.0 == ::http::header::CONTENT_LENGTH);
 
         if let &Some(ref vec) = msg.body().inner() {
             if length_header.is_none() {
-                buf.put_slice(b"Content-Length: ");
-                buf.put(format!("{}", vec.len()).as_bytes());
-                buf.put_slice(b"\r\n");
+                buf.extend_from_slice(b"Content-Length: ");
+                buf.extend_from_slice(format!("{}", vec.len()).as_bytes());
+                buf.extend_from_slice(b"\r\n");
             }
         }
-        buf.put_slice(b"\r\n");
+        buf.extend_from_slice(b"\r\n");
         if let &Some(ref vec) = msg.body().inner() {
-            buf.put(vec.as_slice());
+            buf.extend_from_slice(vec.as_slice());
         }
         Ok(())
     }
