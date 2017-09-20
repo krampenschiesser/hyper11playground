@@ -297,7 +297,7 @@ impl Encoder for HttpCodec {
         use bytes::BufMut;
 
         let status_line = format!("{:?} {} {}\r\n", msg.version(), msg.status().as_u16(), msg.status());
-        buf.put(status_line.as_bytes());
+        buf.extend_from_slice(status_line.as_bytes());
         for (key, value) in msg.headers().iter() {
             let val: &[u8] = key.as_ref();
             buf.extend_from_slice(val);
