@@ -103,9 +103,9 @@ impl Router {
         self.add(Method::PATCH, path, h)
     }
 
-    pub fn static_file<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
+    pub fn static_file<R, P>(&mut self, url_path: R, file_path: P) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
-        self.static_file_cached(url_path, file_path, change_detection, eviction)
+        self.static_file_cached(url_path, file_path, ChangeDetection::Never, EvictionPolicy::Never)
     }
     pub fn static_file_cached<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
@@ -117,9 +117,9 @@ impl Router {
         self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection))
     }
 
-    pub fn static_folder<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
+    pub fn static_folder<R, P>(&mut self, url_path: R, file_path: P) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
-        self.static_folder_cached(url_path, file_path, change_detection, eviction)
+        self.static_folder_cached(url_path, file_path, ChangeDetection::Never, EvictionPolicy::Never)
     }
     pub fn static_folder_cached<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
