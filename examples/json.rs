@@ -8,7 +8,6 @@
 // except according to those terms.
 extern crate rest_in_rust;
 extern crate env_logger;
-extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 

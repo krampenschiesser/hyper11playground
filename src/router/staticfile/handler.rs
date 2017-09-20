@@ -33,6 +33,7 @@ impl StaticFileHandler {
 
 impl Handler for StaticFileHandler {
     fn handle(&self, req: &mut Request) -> Result<Response, HttpError> {
+        let o = req.header(&::http::header::ETAG);
 
         if self.path.is_dir() {
             let mut file_in_dir = self.path.clone();
@@ -41,9 +42,9 @@ impl Handler for StaticFileHandler {
 
             file_in_dir.push(file_name);
 
-            self.cache.get_or_load(&file_in_dir, self.change_detection, self.eviction_policy)
+            self.cache.get_or_load(&file_in_dir, self.change_detection, self.eviction_policy, o)
         } else {
-            self.cache.get_or_load(&self.path, self.change_detection, self.eviction_policy)
+            self.cache.get_or_load(&self.path, self.change_detection, self.eviction_policy,o )
         }
     }
 }

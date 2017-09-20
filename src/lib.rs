@@ -28,7 +28,6 @@ extern crate state;
 extern crate mime_sniffer;
 extern crate mime_guess;
 extern crate http;
-extern crate notify;
 extern crate tokio_io;
 extern crate bytes;
 extern crate httparse;

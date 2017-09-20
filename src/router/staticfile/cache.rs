@@ -16,7 +16,6 @@ use std::time::{Duration, Instant};
 use std::fs::File;
 use std::io::Read;
 use mime_guess::{Mime, guess_mime_type_opt};
-use sha1::Digest;
 use std::time::SystemTime;
 
 pub struct StaticFileCache {
@@ -80,7 +79,7 @@ impl StaticFileCache {
         StaticFileCache { entry_map: RwLock::new(HashMap::new()), max_size: size }
     }
 
-    pub fn get_or_load(&self, path: &PathBuf, change_detection: ChangeDetection, evction_policy: EvictionPolicy) -> Result<Response, HttpError> {
+    pub fn get_or_load(&self, path: &PathBuf, change_detection: ChangeDetection, evction_policy: EvictionPolicy, etag: Option<&str>) -> Result<Response, HttpError> {
         use std::ops::DerefMut;
 
         let mut lock = self.entry_map.write().unwrap();
@@ -101,17 +100,17 @@ impl StaticFileCache {
                         None
                     } else {
                         let v = entry.data.clone();
-                        Some(Ok(v.into()))
+                        Some(create_response(v, &entry.mime_type, &entry.checksum, etag))
                     }
                 }
                 ChangeDetection::Never => {
                     let v = entry.data.clone();
-                    Some(Ok(v.into()))
+                    Some(create_response(v, &entry.mime_type, &entry.checksum, etag))
                 }
                 ChangeDetection::FileInfoChange => {
                     if !file_changed(&entry.path, &entry.last_modification)? {
                         let v = entry.data.clone();
-                        Some(Ok(v.into()))
+                        Some(create_response(v, &entry.mime_type, &entry.checksum, etag))
                     } else {
                         None
                     }
@@ -123,12 +122,12 @@ impl StaticFileCache {
         match found {
             Some(r) => r,
             None => {
-                self.load_file(map, path, change_detection, evction_policy)
+                self.load_file(map, path, change_detection, evction_policy, etag)
             }
         }
     }
 
-    fn load_file(&self, map: &mut HashMap<PathBuf, CacheEntry>, path: &PathBuf, change_detection: ChangeDetection, evction_policy: EvictionPolicy) -> Result<Response, HttpError> {
+    fn load_file(&self, map: &mut HashMap<PathBuf, CacheEntry>, path: &PathBuf, change_detection: ChangeDetection, evction_policy: EvictionPolicy, etag: Option<&str>) -> Result<Response, HttpError> {
         let data = load_file(path, self.max_size)?;
         let data_size = data.len();
         let checksum = checksum(data.as_ref());
@@ -139,7 +138,7 @@ impl StaticFileCache {
         let mime_type_option = guess_mime_type_opt(path);
 
         if change_detection == ChangeDetection::NoCache {
-            return create_response(data, mime_type_option, &checksum.bytes());
+            return create_response(data, &mime_type_option, &checksum.bytes(), etag);
         }
         let retval = data.clone();
 
@@ -161,7 +160,7 @@ impl StaticFileCache {
             map.insert(path.clone(), entry);
         }
 
-        create_response(retval, mime_type_option, &checksum.bytes())
+        create_response(retval, &mime_type_option, &checksum.bytes(), etag)
     }
 }
 
@@ -170,17 +169,23 @@ fn file_changed(path: &Path, time: &SystemTime) -> ::std::io::Result<bool> {
     Ok(modification != *time)
 }
 
-fn create_response(data: Vec<u8>, mime: Option<Mime>, checksum: &[u8]) -> Result<Response, HttpError> {
-    let mut response = Response::from(data); //fixme would be better if response is not owning vec but could just use this vec
-    if let Some(mime) = mime {
-        response.set_header(::http::header::CONTENT_TYPE, format!("{}", mime))?;
-    }
-
-    //fixme this is ugly
+fn create_response(data: Vec<u8>, mime: &Option<Mime>, checksum: &[u8], etag: Option<&str>) -> Result<Response, HttpError> {
     let mut checksum_string = String::with_capacity(20);
     for byte in checksum.iter() {
-        checksum_string.push_str(format!("{:08x}", byte).as_str());
+        checksum_string.push_str(format!("{:02X}", byte).as_str());
     }
+
+    if let Some(etag) = etag {
+        if checksum_string == etag {
+            return Ok(Response::builder().status(::http::StatusCode::NOT_MODIFIED).body(::body::Body::empty()).build()?)
+        }
+    }
+
+    let mut response = Response::from(data); //fixme would be better if response is not owning vec but could just use this vec
+    if let &Some(ref mime) = mime {
+        response.set_header(::http::header::CONTENT_TYPE, format!("{}", mime))?;
+    }
+    //fixme this is ugly
     response.set_header(::http::header::ETAG, checksum_string)?;
     Ok(response)
 }
@@ -247,13 +252,16 @@ fn load_file(path: &Path, max_file_size: usize) -> Result<Vec<u8>, HttpError> {
     let mut file = File::open(path.clone())?;
     let read = file.read_to_end(&mut data)?;
     debug!("Read {} bytes from {:?}", read, path);
-    Ok(data)
+    if max_file_size < read {
+        Err(HttpError::bad_request(format!("File {:?} exceeds has size {} but max allowed size is {}", path, read, max_file_size)))
+    } else {
+        Ok(data)
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use http::Request as HttpRequest;
     use super::*;
     use tempdir::TempDir;
 
@@ -261,7 +269,7 @@ mod tests {
     fn change_detection_never() {
         let cache = StaticFileCache::new();
         let buf = PathBuf::from("examples/static/index.html");
-        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::Never);
+        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::Never, None);
         assert!(result.is_ok(), "Result not ok but {}", result.unwrap_err());
         let response = result.unwrap();
         let body = response.into_vec().unwrap();
@@ -278,12 +286,12 @@ mod tests {
         let path = dir.path().join("test.input");
 
         write_to_file(&path, "Hello world").unwrap();
-        let response = cache.get_or_load(&path, ChangeDetection::FileInfoChange, EvictionPolicy::Never).unwrap();
+        let response = cache.get_or_load(&path, ChangeDetection::FileInfoChange, EvictionPolicy::Never, None).unwrap();
         let message = String::from_utf8(response.into_vec().unwrap()).unwrap();
         assert_eq!("Hello world", message.as_str());
 
         write_to_file(&path, "Hello Sauerland!").unwrap();
-        let response = cache.get_or_load(&path, ChangeDetection::FileInfoChange, EvictionPolicy::Never).unwrap();
+        let response = cache.get_or_load(&path, ChangeDetection::FileInfoChange, EvictionPolicy::Never, None).unwrap();
         let message = String::from_utf8(response.into_vec().unwrap()).unwrap();
         assert_eq!("Hello Sauerland!", message.as_str());
     }
@@ -292,7 +300,7 @@ mod tests {
     fn change_detection_no_cache() {
         let cache = StaticFileCache::new();
         let buf = PathBuf::from("examples/static/index.html");
-        let result = cache.get_or_load(&buf, ChangeDetection::NoCache, EvictionPolicy::Never);
+        let result = cache.get_or_load(&buf, ChangeDetection::NoCache, EvictionPolicy::Never, None);
 
         assert!(result.is_ok(), "Result not ok but {}", result.unwrap_err());
         let r = cache.entry_map.read().unwrap();
@@ -307,22 +315,22 @@ mod tests {
         let path = dir.path().join("test.input");
 
         write_to_file(&path, "Hello world").unwrap();
-        let response = cache.get_or_load(&path, ChangeDetection::Timed(Duration::from_millis(10)), EvictionPolicy::Never).unwrap();
+        let response = cache.get_or_load(&path, ChangeDetection::Timed(Duration::from_millis(1000)), EvictionPolicy::Never, None).unwrap();
         let message = String::from_utf8(response.into_vec().unwrap()).unwrap();
         assert_eq!("Hello world", message.as_str());
 
         write_to_file(&path, "Hello Sauerland!").unwrap();
-        let response = cache.get_or_load(&path, ChangeDetection::Timed(Duration::from_millis(10)), EvictionPolicy::Never).unwrap();
+        let response = cache.get_or_load(&path, ChangeDetection::Timed(Duration::from_millis(1000)), EvictionPolicy::Never, None).unwrap();
         let message = String::from_utf8(response.into_vec().unwrap()).unwrap();
         assert_eq!("Hello world", message.as_str());
 
         {
             let mut r = cache.entry_map.write().unwrap();
             if let Some(entry) = r.get_mut(&path) {
-                entry.last_touched = entry.last_touched - Duration::from_millis(12);
+                entry.last_touched = entry.last_touched - Duration::from_millis(1002);
             }
         }
-        let response = cache.get_or_load(&path, ChangeDetection::Timed(Duration::from_millis(10)), EvictionPolicy::Never).unwrap();
+        let response = cache.get_or_load(&path, ChangeDetection::Timed(Duration::from_millis(1000)), EvictionPolicy::Never, None).unwrap();
         let message = String::from_utf8(response.into_vec().unwrap()).unwrap();
         assert_eq!("Hello Sauerland!", message.as_str());
     }
@@ -333,11 +341,11 @@ mod tests {
         let cache = StaticFileCache::with_max_size(422);
 
         let buf = PathBuf::from("examples/static/index.html");
-        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::WhenMaxSizeReached);
+        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::WhenMaxSizeReached, None);
         assert!(result.is_ok(), "Result not ok but {}", result.unwrap_err());
 
         let buf = PathBuf::from("examples/static/style/style.css");
-        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::WhenMaxSizeReached);
+        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::WhenMaxSizeReached, None);
         assert!(result.is_ok(), "Result not ok but {}", result.unwrap_err());
 
         let map = cache.entry_map.read().unwrap();
@@ -352,7 +360,7 @@ mod tests {
         let cache = StaticFileCache::new();
 
         let buf = PathBuf::from("examples/static/index.html");
-        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::AfterLastAccess(Duration::from_millis(100)));
+        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::AfterLastAccess(Duration::from_millis(100)), None);
         assert!(result.is_ok(), "Result not ok but {}", result.unwrap_err());
 
         {
@@ -363,13 +371,28 @@ mod tests {
         }
 
         let buf = PathBuf::from("examples/static/style/style.css");
-        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::Never);
+        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::Never, None);
         assert!(result.is_ok(), "Result not ok but {}", result.unwrap_err());
 
         let map = cache.entry_map.read().unwrap();
         let size = map.len();
         assert_eq!(1, size);
         assert!(map.get(&buf).is_some());
+    }
+
+    #[test]
+    fn etag() {
+        let cache = StaticFileCache::new();
+        let buf = PathBuf::from("examples/static/index.html");
+
+        let result = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::Never, None);
+        assert!(result.is_ok(), "Result not ok but {}", result.unwrap_err());
+        let response: Response = result.unwrap();
+        let etag_from_response = response.headers().get(::http::header::ETAG).unwrap();
+        let etag = etag_from_response.to_str().unwrap();
+
+        let response = cache.get_or_load(&buf, ChangeDetection::Never, EvictionPolicy::Never, Some(etag)).unwrap();
+        assert_eq!(::http::StatusCode::NOT_MODIFIED, response.status());
     }
 
     fn write_to_file(path: &PathBuf, content: &str) -> ::std::io::Result<()> {

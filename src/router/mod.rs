@@ -25,13 +25,13 @@ pub struct Router {
 }
 
 pub struct InternalRouter {
-    static_file_cache: Arc<StaticFileCache>,
+//    static_file_cache: Arc<StaticFileCache>,
     routes: HashMap<Method, Recognizer<Arc<Route>>>,
 }
 
 impl InternalRouter {
     pub fn new(router: Router) -> Self {
-        let mut r = InternalRouter { routes: HashMap::new(), static_file_cache: router.static_file_cache };
+        let mut r = InternalRouter { routes: HashMap::new(), };// static_file_cache: router.static_file_cache
 
         for (key, route) in router.intial.into_iter() {
             r.routes.entry(key.0.clone()).or_insert(Recognizer::new()).add(key.1.as_ref(), Arc::new(route));
@@ -105,7 +105,7 @@ impl Router {
 
     pub fn static_file<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
-        self.static_file_cached(url_path, file_path, ChangeDetection::NoCache, EvictionPolicy::Never)
+        self.static_file_cached(url_path, file_path, change_detection, eviction)
     }
     pub fn static_file_cached<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
