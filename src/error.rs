@@ -13,9 +13,9 @@ use ::response::Response;
 
 #[derive(Debug)]
 pub struct HttpError {
-    status: StatusCode,
-    msg: String,
-    headers: HeaderMap<HeaderValue>,
+    pub status: StatusCode,
+    pub msg: String,
+    pub headers: HeaderMap<HeaderValue>,
 }
 
 impl ::std::fmt::Display for HttpError {

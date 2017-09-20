@@ -17,9 +17,8 @@ fn main() {
     let addr = "127.0.0.1:8091".parse().unwrap();
 
     let mut r = Router::new();
-    r.static_file("/index.html", Path::new("examples/static/index.html"), ChangeDetection::FileInfoChange);
-    r.static_folder("/style", Path::new("examples/static/style"), ChangeDetection::FileInfoChange);
-    r.get("/hello/:world", hello_world);
+    r.static_file("/index.html", Path::new("examples/static/index.html"), ChangeDetection::FileInfoChange, EvictionPolicy::Never);
+    r.static_folder("/style", Path::new("examples/static/style"), ChangeDetection::FileInfoChange, EvictionPolicy::Never);
 
     let s = Server::new(addr, r);
     s.start_http();

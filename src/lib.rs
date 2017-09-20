@@ -35,6 +35,10 @@ extern crate httparse;
 extern crate sha1;
 #[cfg(test)]
 extern crate spectral;
+#[cfg(test)]
+extern crate tempdir;
+#[cfg(test)]
+extern crate env_logger;
 
 
 pub mod server;
@@ -46,7 +50,7 @@ pub mod error;
 pub mod traits;
 pub mod body;
 
-pub use router::{Router,ChangeDetection};
+pub use router::{Router,ChangeDetection,EvictionPolicy};
 pub use error::HttpError;
 pub use handler::Handler;
 pub use request::Request;

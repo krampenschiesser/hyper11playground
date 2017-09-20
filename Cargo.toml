@@ -49,6 +49,7 @@ sha1 = "0.2.0"
 reqwest = "0.7.1" #should be in dev dependencies
 env_logger = "0.4.3"
 spectral = "0.6.0"
+tempdir = "0.3"
 
 [badges]
 appveyor = { repository = "https://github.com/krampenschiesser/rest_in_rust", branch = "master", service = "github" }

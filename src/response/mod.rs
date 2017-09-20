@@ -21,7 +21,7 @@ impl Response {
     pub fn from_http(inner: HttpResponse<Body>) -> Self {
         Response { inner }
     }
-    pub fn try_from_json<T: ::serde::Serialize>(data: T) -> Result<Self,::error::HttpError> {
+    pub fn try_from_json<T: ::serde::Serialize>(data: T) -> Result<Self, ::error::HttpError> {
         let serialized = ::serde_json::to_string(&data)?;
         Ok(serialized.into())
     }
@@ -51,6 +51,17 @@ impl Response {
 
     pub fn into_inner(self) -> HttpResponse<Body> {
         self.inner
+    }
+
+    pub fn set_header<T: AsRef<str>>(&mut self, name: ::http::header::HeaderName, value: T) -> Result<(), ::error::HttpError> {
+        let value = ::http::header::HeaderValue::from_str(value.as_ref())?;
+        self.inner.headers_mut().insert(name, value);
+        Ok(())
+    }
+
+    pub fn into_vec(self) -> Option<Vec<u8>> {
+        let (_, b) = self.into_inner().into_parts();
+        b.into_inner()
     }
 }
 

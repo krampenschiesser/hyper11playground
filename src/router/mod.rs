@@ -103,17 +103,25 @@ impl Router {
         self.add(Method::PATCH, path, h)
     }
 
-    pub fn static_file<R, H, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection) -> &mut Route
+    pub fn static_file<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
+        where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
+        self.static_file_cached(url_path, file_path, ChangeDetection::NoCache, EvictionPolicy::Never)
+    }
+    pub fn static_file_cached<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
         let path_buf = file_path.into();
         if !path_buf.is_file() {
             panic!("Given path should be a file: {:?}", path_buf)
         }
         let cache = self.static_file_cache.clone();
-        self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf, cache))
+        self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection))
     }
 
-    pub fn static_folder<R, H, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection) -> &mut Route
+    pub fn static_folder<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
+        where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
+        self.static_folder_cached(url_path, file_path, change_detection, eviction)
+    }
+    pub fn static_folder_cached<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
         let path_buf = file_path.into();
         if !path_buf.is_dir() {
@@ -138,7 +146,7 @@ impl Router {
         total_string.push_str(extension.as_ref());
 
         let cache = self.static_file_cache.clone();
-        self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf, cache))
+        self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection))
     }
 }
 

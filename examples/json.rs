@@ -27,7 +27,7 @@ fn post_json(req: &mut Request) -> Result<Response, HttpError> {
 
 fn get_json(_: &mut Request) -> Result<Response, HttpError> {
     let obj = Hello { world: "Hello Sauerland".into() };
-    Ok(Response::try_from_json(obj?))
+    Response::try_from_json(obj)
 }
 
 fn main() {

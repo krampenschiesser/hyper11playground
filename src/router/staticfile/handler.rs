@@ -9,31 +9,30 @@
 
 
 use std::path::PathBuf;
-use std::fs::File;
 
 use handler::Handler;
 use response::Response;
 use error::HttpError;
 use request::Request;
-use super::cache::{StaticFileCache,EvictionPolicy,ChangeDetection};
+use super::cache::{StaticFileCache, EvictionPolicy, ChangeDetection};
 use std::sync::Arc;
 
 pub struct StaticFileHandler {
     path: PathBuf,
     cache: Arc<StaticFileCache>,
     eviction_policy: EvictionPolicy,
+    change_detection: ChangeDetection,
 
 }
 
 impl StaticFileHandler {
-    pub fn new<T: Into<PathBuf>>(path: T, cache: Arc<StaticFileCache>, ) -> Self {
-        StaticFileHandler { path: path.into(), cache }
+    pub fn new<T: Into<PathBuf>>(path: T, cache: Arc<StaticFileCache>, eviction_policy: EvictionPolicy, change_detection: ChangeDetection) -> Self {
+        StaticFileHandler { path: path.into(), cache, eviction_policy, change_detection }
     }
 }
 
 impl Handler for StaticFileHandler {
     fn handle(&self, req: &mut Request) -> Result<Response, HttpError> {
-        use std::io::Read;
 
         if self.path.is_dir() {
             let mut file_in_dir = self.path.clone();
@@ -42,9 +41,9 @@ impl Handler for StaticFileHandler {
 
             file_in_dir.push(file_name);
 
-            self.cache.get_or_load(&file_in_dir)
+            self.cache.get_or_load(&file_in_dir, self.change_detection, self.eviction_policy)
         } else {
-            self.cache.get_or_load(&self.path)
+            self.cache.get_or_load(&self.path, self.change_detection, self.eviction_policy)
         }
     }
 }
