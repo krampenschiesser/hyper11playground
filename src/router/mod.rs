@@ -118,7 +118,9 @@ impl Router {
             panic!("Given path should be a file: {:?}", path_buf)
         }
         let cache = self.static_file_cache.clone();
-        self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection))
+        let mut route = self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection));
+        route.threading=Threading::SEPERATE;
+        route
     }
 
     pub fn static_folder<R, P>(&mut self, url_path: R, file_path: P) -> &mut Route
@@ -150,7 +152,9 @@ impl Router {
         total_string.push_str(extension.as_ref());
 
         let cache = self.static_file_cache.clone();
-        self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection))
+        let mut route = self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection));
+        route.threading=Threading::SEPERATE;
+        route
     }
 }
 
