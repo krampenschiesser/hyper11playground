@@ -10,6 +10,8 @@ use std::ops::Deref;
 use error::HttpError;
 use std::fmt::{Formatter, Result as FmtResult, Debug};
 
+///Body used by rest in rust.
+///basically a placeholder for Option<Vec<u8>>
 pub struct Body(pub Option<Vec<u8>>);
 
 impl Debug for Body {
@@ -29,9 +31,12 @@ impl Debug for Body {
 }
 
 impl Body {
+    ///Shortcut for creating an empty body
     pub fn empty() -> Self {
         ().into()
     }
+    
+    ///converts any serde serializeable object into a string and creates a corresponding body from it
     pub fn fom_serde<T: ::serde::Serialize>(value: T) -> Result<Self, HttpError> {
         use std::convert::TryFrom;
 
@@ -49,6 +54,7 @@ impl Body {
         self.0
     }
 
+    ///Converts a string body to any serde deserializable body
     pub fn to_json<T>(&self) -> Result<T, HttpError>
         where T: ::serde::de::DeserializeOwned {
         use serde_json::from_str;
@@ -77,6 +83,7 @@ impl Body {
         }
     }
 
+    ///Helper method to convert the body to a string
     pub fn to_string(&self) -> Result<String, HttpError> {
         let vec: &Vec<u8> = match self.0 {
             Some(ref v) => v,

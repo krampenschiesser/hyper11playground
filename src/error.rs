@@ -11,6 +11,16 @@ use http::header::HeaderValue;
 
 use ::response::Response;
 
+/// RestInRust's error type
+/// Suupports various conversions out of the box
+/// 
+/// * conversion from any string
+/// * ::http::Error
+/// * ::std::io::Error
+/// * ::http::header::InvalidHeaderValue
+/// * ::serde_json::Error
+/// * ::std::str::Utf8Error
+/// * ::http::uri::InvalidUri
 #[derive(Debug)]
 pub struct HttpError {
     pub status: StatusCode,
@@ -31,19 +41,23 @@ impl ::std::error::Error for HttpError {
 }
 
 impl HttpError {
+    ///Shortcut function to create a 404 not found error
     pub fn not_found<S: Into<String>>(resource: S) -> Self {
         let msg: String = resource.into();
         Self::internal_error(StatusCode::NOT_FOUND, msg)
     }
 
+    ///Shortcut function to create a 403 bad request error
     pub fn bad_request<S: Into<String>>(resource: S) -> Self {
         Self::internal_error(StatusCode::BAD_REQUEST, resource)
     }
 
+    ///Shortcut function to create a 401 unauthorized error
     pub fn unauthorized<S: Into<String>>(resource: S) -> Self {
         Self::internal_error(StatusCode::UNAUTHORIZED, resource)
     }
 
+    ///Shortcut function to create a 500 internal server error
     pub fn internal_server_error<S: Into<String>>(resource: S) -> Self {
         Self::internal_error(StatusCode::INTERNAL_SERVER_ERROR, resource)
     }
@@ -126,7 +140,18 @@ impl From<::serde_json::Error> for HttpError {
 impl From<::std::str::Utf8Error> for HttpError {
     fn from(error: ::std::str::Utf8Error) -> Self {
         use std::error::Error;
+
+        error!("Invalid utf8 string. {}", error.description());
         HttpError::bad_request(error.description())
+    }
+}
+
+impl From<::http::uri::InvalidUri> for HttpError {
+    fn from(invalid_uri: ::http::uri::InvalidUri) -> Self {
+        use std::error::Error;
+
+        error!("Invalid URI. {}", invalid_uri.description());
+        HttpError::bad_request(invalid_uri.description())
     }
 }
 

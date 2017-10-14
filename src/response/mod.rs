@@ -12,23 +12,39 @@ use http::{StatusCode, HeaderMap};
 use http::header::{HeaderValue, HeaderName};
 use ::body::Body;
 
+
+/// wrapper type around http::Response
+/// incldues the Body which is a wrapper around Option<Vec<u8>>
+/// It already converts from a some types:
+/// 
+/// * from a String
+/// * a &str
+/// * a Vec<u8>
+/// * a &[u8]
+/// * any serde struct via ```Response::try_from_json```
+/// 
 #[derive(Debug)]
 pub struct Response {
     inner: HttpResponse<Body>,
 }
 
 impl Response {
+    /// creates a new response from a given http::Response<Body>
+    /// creates a new response from a given http::Response<Body>
     pub fn from_http(inner: HttpResponse<Body>) -> Self {
         Response { inner }
     }
+    /// new ResponseBuilder struct
+    pub fn builder() -> ResponseBuilder {
+        ResponseBuilder::default()
+    }
+    /// converts any serde serializable struct _T_ into a valid response or an HttpError
     pub fn try_from_json<T: ::serde::Serialize>(data: T) -> Result<Self, ::error::HttpError> {
         let serialized = ::serde_json::to_string(&data)?;
         Ok(serialized.into())
     }
-    pub fn builder() -> ResponseBuilder {
-        ResponseBuilder::default()
-    }
 
+    /// shortcut for creating a moved permanently response
     pub fn moved_permanent<T: AsRef<str>>(url: T) -> Result<Response, ::error::HttpError> {
         let value: HeaderValue = HeaderValue::from_str(url.as_ref())?;
         Response::builder()
@@ -59,6 +75,7 @@ impl Response {
         Ok(())
     }
 
+    /// converts the given response into a Vec<u8>, used for testing/response parsing
     pub fn into_vec(self) -> Option<Vec<u8>> {
         let (_, b) = self.into_inner().into_parts();
         b.into_inner()

@@ -10,8 +10,10 @@ use request::Request;
 use error::HttpError;
 use response::Response;
 
+/// Handler trait
 pub trait Handler: Send + Sync + 'static
 {
+    /// Called by the server to handle a request
     fn handle(&self, req: &mut Request) -> Result<Response, HttpError>;
 }
 

@@ -36,25 +36,27 @@ struct CacheEntry {
     mime_type: Option<Mime>,
 }
 
+/// Defines how changes are detected for cached entries
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ChangeDetection {
     /// check file meta data with every request and check if it changed (updated time)
     FileInfoChange,
     ///read if cache entry older than time
     Timed(Duration),
-    /// always cached
+    /// always cached, never detect changes
     Never,
-    /// not cached
+    /// not cached, always read from file
     NoCache,
 }
 
+/// Defines when entries are removed from the file cache
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum EvictionPolicy {
-    //evicts entry after given ms
+    /// evicts entry after given ms
     AfterLastAccess(Duration),
-    //evicts entry when cache is getting full
+    /// evicts entry when cache is getting full
     WhenMaxSizeReached,
-    //never evicts
+    /// never evicts, if all entries are never, new entries will not be cached
     Never
 }
 
@@ -402,4 +404,5 @@ mod tests {
         f.write_all(content.as_bytes())?;
         Ok(())
     }
+
 }

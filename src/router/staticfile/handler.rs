@@ -42,9 +42,36 @@ impl Handler for StaticFileHandler {
 
             file_in_dir.push(file_name);
 
+            println!("file dir={:?}, path={:?}", file_in_dir, self.path);
+            println!("file dir={:?}, path={:?}", file_in_dir.canonicalize()?, self.path.canonicalize()?);
+            if !file_in_dir.canonicalize()?.starts_with(&self.path.canonicalize()?) {
+                return Err(HttpError::not_found(file_name));
+            }
+            
+
             self.cache.get_or_load(&file_in_dir, self.change_detection, self.eviction_policy, o)
         } else {
-            self.cache.get_or_load(&self.path, self.change_detection, self.eviction_policy,o )
+            self.cache.get_or_load(&self.path, self.change_detection, self.eviction_policy, o)
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_path_traversal_directory() {
+        let cache = StaticFileCache::default();
+        let handler = StaticFileHandler::new(PathBuf::from("examples/static"), Arc::new(cache), EvictionPolicy::Never, ChangeDetection::Never);
+        let mut r = Request::get("http://localhost:8080/../../../Cargo.toml").unwrap();
+        r.params_mut().inner_mut().insert("file".into(), "../../Cargo.toml".into());
+        let result = handler.handle(&mut r);
+        println!("{:?}", result);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        println!("{}", err);
+        assert_eq!(404, err.status.as_u16());
     }
 }

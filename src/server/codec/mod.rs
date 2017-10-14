@@ -294,8 +294,6 @@ impl Encoder for HttpCodec {
     type Error = io::Error;
 
     fn encode(&mut self, msg: Response<Body>, buf: &mut BytesMut) -> io::Result<()> {
-        use bytes::BufMut;
-
         let status_line = format!("{:?} {} {}\r\n", msg.version(), msg.status().as_u16(), msg.status());
         buf.extend_from_slice(status_line.as_bytes());
         for (key, value) in msg.headers().iter() {

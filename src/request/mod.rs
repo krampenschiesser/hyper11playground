@@ -15,9 +15,11 @@ use std::sync::Arc;
 
 mod params;
 
+use error::HttpError;
 pub use self::params::Params;
 
-
+/// Request reqpresenting a http request
+/// 
 #[derive(Debug)]
 pub struct Request {
     inner: HttpRequest<Body>,
@@ -146,10 +148,33 @@ impl Request {
         self.header(&hname)
     }
 
+    pub fn params_mut(&mut self) -> &mut Params {
+        &mut self.params
+    }
+
     //    pub fn body_as_str(&self) -> &str {
     //        use futures::Stream;
     //        let v: Vec<u8> = self.inner.body().collect::Vec<u8>();
     //    }
+}
+
+impl Request {
+    pub fn get(path: &str) -> Result<Self, HttpError> {
+        use http::request::Builder as RequestBuilder;
+        use http::{Uri, Method};
+        use std::str::FromStr;
+
+        let uri = Uri::from_str(path)?;
+        let r = RequestBuilder::new().method(Method::GET).uri(uri).body(Body::empty())?;
+
+        Ok(Request {
+            inner: r,
+            state: StateHolder::None,
+            params: Params::default(),
+            query: HashMap::new(),
+            remote_addr: None,
+        })
+    }
 }
 
 impl Deref for Request{

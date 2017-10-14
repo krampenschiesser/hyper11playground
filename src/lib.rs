@@ -7,6 +7,35 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! # Rest in Rust 
+//!
+//!
+//! Rest in rust is a very basic http 1 rest server based on
+//! [Tokio](https://tokio.rs/) and the [http](https://github.com/carllerche/http) crate.
+//! 
+//! It's main goal is to provide a good developer experience for easy development.
+//! This is done by returning results from handlers and a lot of nice conversions
+//! between types.
+//! Everything is included, there are no plugins you have to find to *extend* behavior in order to get simple things done.
+//! 
+//! 
+//! ## Fetures
+//! 
+//! * https
+//! * simple routing
+//! * JSON(serde) parsing in both ways (from body, to body)
+//! * query params
+//! * route params
+//! * static file serving
+//! 
+//! 
+//! ## Secrutiy
+//! 
+//! Not much about security in this crate,
+//! I would not recommend it for production use as standalone,
+//! always put it behind a reverse proxy.
+//! However any suggestions on how to improve it are very welcome.
+ 
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![feature(try_from)]
@@ -16,6 +45,10 @@ extern crate url;
 extern crate route_recognizer;
 extern crate serde;
 extern crate serde_json;
+#[allow(unused)]
+#[macro_use]
+#[allow(unused)]
+extern crate serde_derive;
 extern crate futures;
 extern crate futures_cpupool;
 #[macro_use]
@@ -53,7 +86,7 @@ pub use router::{Router,ChangeDetection,EvictionPolicy};
 pub use error::HttpError;
 pub use handler::Handler;
 pub use request::Request;
-pub use response::Response;
+pub use response::{ResponseBuilder,Response};
 pub use server::Server;
 pub use server::tester::ServerTester;
 pub use traits::{FromRequest, FromRequestAsRef};

@@ -19,11 +19,14 @@ mod staticfile;
 
 pub use self::staticfile::{ChangeDetection, EvictionPolicy};
 
+/// Basic struct containing route registrations
+/// when creating a server out of this, it will be converted to InternalRouter 
 pub struct Router {
     static_file_cache: Arc<StaticFileCache>,
     intial: Vec<Route>,
 }
 
+/// internal router representation used by RestInRust, modifcations are no longer possible
 pub struct InternalRouter {
     //    static_file_cache: Arc<StaticFileCache>,
     routes: HashMap<Method, Recognizer<Arc<Route>>>,
@@ -59,14 +62,19 @@ impl InternalRouter {
 }
 
 impl Router {
+    /// creates a new empty router
     pub fn new() -> Self {
         Router { intial: Vec::new(), static_file_cache: Arc::new(StaticFileCache::new()) }
     }
 
+    /// configures the static file cache size in bytes.
+    /// The default is 50_000_000 bytes/octets
     pub fn set_static_file_cache_size(&mut self, size: usize) {
         self.static_file_cache = Arc::new(StaticFileCache::with_max_size(size));
     }
 
+    /// adds a new route to the router, please note the shortcut methods below.
+    /// Additionally it returns a mutable reference to the Route which you can use to further modify the route 
     pub fn add<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, method: Method, path: P, h: H) -> &mut Route {
         let path = path.into();
         let route = Route {
@@ -85,88 +93,97 @@ impl Router {
         self.intial.get_mut(index).unwrap()
     }
 
+    /// register a get handler
     pub fn get<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
         self.add(Method::GET, path, h)
     }
+    
+    /// register a put handler
     pub fn put<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
         self.add(Method::PUT, path, h)
     }
+    /// register a post handler
     pub fn post<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
         self.add(Method::POST, path, h)
     }
+    /// register a delete handler
     pub fn delete<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
         self.add(Method::DELETE, path, h)
     }
+    /// register an options handler
     pub fn options<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
         self.add(Method::OPTIONS, path, h)
     }
+    /// register an head handler
     pub fn head<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
         self.add(Method::HEAD, path, h)
     }
+    /// register an patch handler
     pub fn patch<P: Into<String> + Sized + AsRef<str>, H: Handler>(&mut self, path: P, h: H) -> &mut Route {
         self.add(Method::PATCH, path, h)
     }
 
-    pub fn static_file<R, P>(&mut self, url_path: R, file_path: P) -> &mut Route
+    /// Registers a static file path for file serving. 
+    /// This can be a file or directory
+    /// this path will never be cached and always read again from the file system.
+    /// If you need a different behavior use ```static_path_cached```
+    pub fn static_path<R, P>(&mut self, url_path: R, file_path: P) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
-        self.static_file_cached(url_path, file_path, ChangeDetection::Never, EvictionPolicy::Never)
+        self.static_path_cached(url_path, file_path, ChangeDetection::NoCache, EvictionPolicy::Never)
     }
-    pub fn static_file_cached<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
+    /// Registers a static file path for file serving
+    /// This can be a file or directory
+    /// You can define how changes are discovered in order to update the internal file cache
+    /// Also you can define how the cache size is kept small be defining an EvictionPolicy
+    pub fn static_path_cached<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
         where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
         let path_buf = file_path.into();
-        if !path_buf.is_file() {
-            panic!("Given path should be a file: {:?}", path_buf)
-        }
-        let cache = self.static_file_cache.clone();
-        let mut route = self.add(Method::GET, url_path, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection));
-        route.threading=Threading::SEPERATE;
-        route
-    }
+        let total_string = if path_buf.is_dir() {
+            let url_string = url_path.into();
+            let mut total_string = String::new();
+            total_string.push_str(url_string.as_str());
 
-    pub fn static_folder<R, P>(&mut self, url_path: R, file_path: P) -> &mut Route
-        where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
-        self.static_folder_cached(url_path, file_path, ChangeDetection::Never, EvictionPolicy::Never)
-    }
-    pub fn static_folder_cached<R, P>(&mut self, url_path: R, file_path: P, change_detection: ChangeDetection, eviction: EvictionPolicy) -> &mut Route
-        where R: Into<String> + Sized + AsRef<str>, P: Into<PathBuf> {
-        let path_buf = file_path.into();
-        if !path_buf.is_dir() {
-            panic!("Given path should be a folder: {:?}", path_buf)
-        }
-        let url_string = url_path.into();
-        let mut total_string = String::new();
-        total_string.push_str(url_string.as_str());
-
-        let o = url_string.as_bytes().iter().rev().next();
-        let extension = match o {
-            Some(b) => {
-                let x = &b'/';
-                if b == x {
-                    "*file"
-                } else {
-                    "/*file"
+            let o = url_string.as_bytes().iter().rev().next();
+            let extension = match o {
+                Some(b) => {
+                    let x = &b'/';
+                    if b == x {
+                        "*file"
+                    } else {
+                        "/*file"
+                    }
                 }
-            }
-            None => "/*file",
+                None => "/*file",
+            };
+            total_string.push_str(extension.as_ref());
+            total_string
+        } else {
+            url_path.into()
         };
-        total_string.push_str(extension.as_ref());
 
         let cache = self.static_file_cache.clone();
-        let mut route = self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection));
-        route.threading=Threading::SEPERATE;
+        let route = self.add(Method::GET, total_string, staticfile::StaticFileHandler::new(path_buf, cache, eviction, change_detection));
+        route.threading = Threading::SEPERATE;
         route
     }
 }
 
+/// Representation of a registered route
 pub struct Route {
     pub path: String,
     pub method: Method,
     pub callback: Arc<Box<Handler>>,
+    /// Defines if a route is processed in the same thread as the connection handling is done
+    /// or in a pooled thread
     pub threading: Threading,
 }
 
+/// Defines if a route is processed in the same thread as the connection handling is done
+/// or in a pooled thread
 pub enum Threading {
+    /// Route is processed in the same thread as the connection 
     SAME,
+    /// Route is processed in a pooled thread 
     SEPERATE
 }
 
@@ -178,6 +195,19 @@ impl Route {
     pub fn get_callback(&self) -> &Box<Handler> {
         &self.callback
     }
+    /// returns the current thread model of the route, see Threading
+    pub fn get_threading(&self) -> &Threading {
+        &self.threading
+    }
+    
+    /// Route is processed in a pooled thread 
+    pub fn seperate_thread(&mut self){
+        self.threading=Threading::SEPERATE
+    }
+    /// Route is processed in the same thread as the connection 
+    pub fn same_thread(&mut self){
+        self.threading=Threading::SAME
+    } 
 }
 
 

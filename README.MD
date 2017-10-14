@@ -19,6 +19,7 @@ Everything is included, there are no plugins you have to find to *extend* behavi
 * JSON(serde) parsing in both ways (from body, to body)
 * query params
 * route params
+* static file serving
 
 ### Missing
 

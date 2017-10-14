@@ -30,6 +30,10 @@ impl Params {
     pub fn get(&self, key: &str) -> Option<&str> {
         self.data.get(key).map(|s| s.as_str())
     }
+    
+    pub fn inner_mut(&mut self) -> &mut BTreeMap<String,String> {
+        &mut self.data
+    }
 }
 
 impl Default for Params {
