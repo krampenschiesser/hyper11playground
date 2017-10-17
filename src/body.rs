@@ -6,9 +6,13 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
+
+//! contains the body type, a wrapper around ```Option<Vec<u8>>```
+
 use std::ops::Deref;
 use error::HttpError;
 use std::fmt::{Formatter, Result as FmtResult, Debug};
+
 
 ///Body used by rest in rust.
 ///basically a placeholder for ```Option<Vec<u8>>```

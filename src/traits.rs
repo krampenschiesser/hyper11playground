@@ -13,7 +13,7 @@ use ::request::Request;
 use ::error::HttpError;
 
 /// Helper trait that you can implement for your objects that are being parsed from a request
-/// Eg. parsing queryparams to a serch struct
+/// Eg. parsing queryparams to a search struct
 /// 
 ///```
 /// #[macro_use] extern crate serde_derive;

@@ -18,8 +18,8 @@ mod params;
 use error::HttpError;
 pub use self::params::Params;
 
-/// Request reqpresenting a http request
-/// 
+/// Request wrapping a ```http::Request<Body>```
+/// Also contains additional information as parsed path params and global state
 #[derive(Debug)]
 pub struct Request {
     inner: HttpRequest<Body>,
@@ -56,21 +56,48 @@ impl Default for Request {
     }
 }
 
-
 impl Request {
+    /// Creates a new request during parsing time
     pub fn new(req: HttpRequest<Body>, state: Arc<Container>, params: Params) -> Self {
         let query = Request::parse_query(req.uri().query());
         Request { inner: req, params, state: StateHolder::Some(state), query, remote_addr: None }
     }
 
+    /// returns a path parameter with the given name
+    /// 
+    /// ```
+    /// # use rest_in_rust::*;
+    /// # fn read_user(_: &str) -> Result<Response,HttpError>{
+    /// #    ResponseBuilder::default().build()
+    /// # }
+    /// # #[allow(dead_code)]
+    /// fn param_parser(req: &mut Request) -> Result<Response, HttpError> {
+    ///     let user_name = req.param("user_name").ok_or(HttpError::bad_request("No username given"))?;
+    ///     read_user(user_name)
+    /// }
+    /// ```
     pub fn param(&self, name: &str) -> Option<&str> {
         self.params.get(name)
     }
 
+    /// returns all path parameters
     pub fn params(&self) -> &Params {
         &self.params
     }
 
+    /// returns the first query parameter for the given key
+    /// 
+    /// ```
+    /// # use rest_in_rust::*;
+    /// # fn read_user(_: &str) -> Result<Response,HttpError>{
+    /// #    ResponseBuilder::default().build()
+    /// # }
+    /// # #[allow(dead_code)] 
+    /// fn query(req: &mut Request) -> Result<Response, HttpError> {
+    ///     let user_name = req.query_first("userName").ok_or(HttpError::bad_request("No username given"))?;
+    ///     read_user(user_name)
+    /// }
+    /// ```
     pub fn query_first(&self, name: &str) -> Option<&str> {
         let o = self.query_all().get(name);
         if let Some(vec) = o {
@@ -83,10 +110,12 @@ impl Request {
             None
         }
     }
+    /// returns the all query parameters for the given key
+    /// most of the time you want to use  ```Request::query_first```
     pub fn query(&self, name: &str) -> Option<&Vec<String>> {
         self.query_all().get(name)
     }
-
+    /// returns all query paramters
     pub fn query_all(&self) -> &HashMap<String, Vec<String>> {
         &self.query
     }
@@ -109,6 +138,23 @@ impl Request {
         }
     }
 
+    /// returns state that was previously registered at the server
+    /// 
+    /// ```
+    /// # use rest_in_rust::*;
+    /// use std::sync::RwLock;
+    /// 
+    /// # #[allow(dead_code)]
+    /// struct GlobalState {
+    ///     counter: RwLock<u32>,
+    /// }
+    /// # #[allow(dead_code)]
+    /// fn state(req: &mut Request) -> Result<Response, HttpError> {
+    ///     let state: &GlobalState = req.get_state().ok_or(HttpError::internal_server_error("No state present"))?;
+    ///     let counter = state.counter.read().unwrap();
+    ///     Ok(format!("Counter: {}", *counter).into())
+    /// }
+    /// ```
     pub fn get_state<T: Send + Sync + 'static>(&self) -> Option<&T> {
         match self.state {
             StateHolder::None => None,
@@ -118,10 +164,13 @@ impl Request {
         }
     }
 
+    /// sets a reference to the global state container
     pub fn set_state<T: Send + Sync + 'static>(&mut self, state: Arc<Container>) {
         self.state = StateHolder::Some(state);
     }
 
+    /// returns a header value as str for the given ```::http::header::HeaderName```
+    /// if the header is not parsable as utf8 string it returns ```Option::None```
     pub fn header(&self, name: &::http::header::HeaderName) -> Option<&str> {
         let o = self.inner.headers().get(name);
         if let Some(value) = o {
@@ -134,6 +183,15 @@ impl Request {
         }
     }
 
+    /// returns a header value as ```&[u8]``` for the given ```::http::header::HeaderName```
+    /// if the header is not parsable as utf8 string it returns ```Option::None```
+    pub fn header_bytes(&self, name: &::http::header::HeaderName) -> Option<&[u8]> {
+        self.inner.headers().get(name).map(|v| v.as_bytes())
+    }
+
+    /// convenience method returns a header value as str for the given string header name
+    /// if the given header name is not a valid ```::http::header::HeaderName``` it will return ```Option::None``` 
+    /// if the header is not parsable as utf8 string it returns ```Option::None```
     pub fn header_str(&self, name: &str) -> Option<&str> {
         use http::header::HeaderName;
         use std::str::FromStr;
@@ -148,6 +206,7 @@ impl Request {
         self.header(&hname)
     }
 
+    /// modify params
     pub fn params_mut(&mut self) -> &mut Params {
         &mut self.params
     }

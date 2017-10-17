@@ -6,6 +6,10 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
+
+//! Contains the router you use to configure get/put/post/delete/head/options routes
+//! Alsos contains routes and static file handler + cache.
+
 use http::Method;
 use handler::Handler;
 use route_recognizer::Router as Recognizer;
@@ -14,6 +18,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::path::PathBuf;
 use self::staticfile::StaticFileCache;
+
 
 mod staticfile;
 

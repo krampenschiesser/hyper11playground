@@ -11,8 +11,30 @@ This is done by returning results from handlers and a lot of nice conversions
 between types.
 Everything is included, there are no plugins you have to find to *extend* behavior in order to get simple things done.
 
+## Getting started
+```
+extern crate rest_in_rust;
+extern crate env_logger;
 
-## Fetures
+use rest_in_rust::*;
+
+fn hello_world(req: &mut Request) -> Result<Response, HttpError> {
+    Ok(req.param("world").unwrap_or("sauerland").into())
+}
+
+fn main() {
+    let _ = env_logger::init();
+    let addr = "127.0.0.1:8091".parse().unwrap();
+
+    let mut r = Router::new();
+    r.get("/hello/:world", hello_world);
+
+    let s = Server::new(addr, r);
+    s.start_http();
+}
+```
+
+## Features
 
 * https
 * simple routing
@@ -20,6 +42,7 @@ Everything is included, there are no plugins you have to find to *extend* behavi
 * query params
 * route params
 * static file serving
+* headless test mode (don't open socket)
 
 ### Missing
 
@@ -33,7 +56,7 @@ Planned features in the near future are:
 * _Maybe chunked encoding support_
 * _Maybe http2 support via tokio-http2_
 
-## Secrutiy
+## Security
 
 Not much about security in this crate, 
 I would not recommend it for production use as standalone, 

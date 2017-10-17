@@ -19,17 +19,178 @@
 //! Everything is included, there are no plugins you have to find to *extend* behavior in order to get simple things done.
 //! 
 //! 
-//! ## Fetures
+//! ## Features
 //! 
-//! * https
-//! * simple routing
-//! * JSON(serde) parsing in both ways (from body, to body)
-//! * query params
-//! * route params
-//! * static file serving
+//! ### Https
+//! 
+//! ```rust,no_run
+//! extern crate rest_in_rust;
+//! extern crate native_tls;
+//! 
+//! use rest_in_rust::*;
+//! use native_tls::Pkcs12;
+//! 
+//! fn hello_world(_: &mut Request) -> Result<Response, HttpError> {
+//!     Ok("hello encryption".into())
+//! }
+//! 
+//! fn main() {
+//!     let addr = "127.0.0.1:8091".parse().unwrap();
+//!     let mut r = Router::new();
+//!     r.get("/", hello_world);
+//!     let  s = Server::new(addr,r);
+//! 
+//!     let der = include_bytes!("../examples/certificate.p12");
+//!     let cert = Pkcs12::from_der(der, "password").unwrap();
+//!     s.start_https(cert);
+//! }
+//! ```
+//! 
+//! ### Simple Routing
+//! 
+//! ```rust,no_run
+//! extern crate rest_in_rust;
+//! use rest_in_rust::*;
+//! 
+//! fn params(req: &mut Request) -> Result<Response, HttpError> {
+//!     let hello_str = req.param("hello").unwrap_or("Hallo ");
+//!     let world_str = req.param("world").unwrap_or("Sauerland!");
+//!     Ok(format!("{}{}", hello_str, world_str).into())
+//! }
+//! fn say(req: &mut Request) -> Result<Response, HttpError> {
+//!     let world_str = req.param("text").unwrap_or("Silence!");
+//!     Ok(world_str.into())
+//! }
+//! fn main() {
+//!     let addr = "127.0.0.1:8091".parse().unwrap();
+//! 
+//!     let mut r = Router::new();
+//!     r.get("/:hello/:world", params);
+//!     r.get("/say/*text", say);
+//! 
+//!     let s = Server::new(addr, r);
+//!     s.start_http();
+//! }
+//! ```
+//! 
+//! ## JSON(serde) parsing in both ways (from body, to body)
+//! 
+//! ```rust,no_run
+//! extern crate rest_in_rust;
+//! #[macro_use]
+//! extern crate serde_derive;
+//! 
+//! use rest_in_rust::*;
+//! 
+//! #[derive(Serialize, Deserialize, Debug)]
+//! struct Hello {
+//!     world: String,
+//! }
+//! fn post_json(req: &mut Request) -> Result<Response, HttpError> {
+//!     let obj: Hello = req.body().to_json()?;
+//! 
+//!     Ok(format!("{:?}", obj).into())
+//! }
+//! fn get_json(_: &mut Request) -> Result<Response, HttpError> {
+//!     let obj = Hello { world: "Hello Sauerland".into() };
+//!     Response::try_from_json(obj)
+//! }
+//! fn main() {
+//!     let addr = "127.0.0.1:8091".parse().unwrap();
+//! 
+//!     let mut r = Router::new();
+//!     r.post("/", post_json);
+//!     r.get("/", get_json);
+//! 
+//!     let s = Server::new(addr, r);
+//!     s.start_http();
+//! }
+//! ```
+//! 
+//! ## Query Params
+//! 
+//! ```rust,no_run
+//! extern crate rest_in_rust;
+//! 
+//! use rest_in_rust::*;
+//! 
+//! fn query_param(req: &mut Request) -> Result<Response, HttpError> {
+//!     let all_params = req.query_all();
+//!     let mut retval = String::new();
+//!     for (key, value) in all_params.iter() {
+//!         retval.push_str(format!("{}\n",key).as_str());
+//!         for string in value.iter() {
+//!             retval.push_str(format!("\t{}\n",string).as_str());
+//!         }
+//!     }
+//!     Ok(retval.into())
+//! }
+//! 
+//! fn main() {
+//!     let addr = "127.0.0.1:8091".parse().unwrap();
+//! 
+//!     let mut r = Router::new();
+//!     r.get("/", query_param);
+//! 
+//!     let s = Server::new(addr,r);
+//!     s.start_http();
+//! }
+//! ```
+//! 
+//! ## Static File Serving
+//! 
+//! ```rust,no_run
+//! extern crate rest_in_rust;
+//! 
+//! use rest_in_rust::*;
+//! use std::path::Path;
+//! 
+//! fn main() {
+//!     let addr = "127.0.0.1:8091".parse().unwrap();
+//!  
+//!     let mut r = Router::new();
+//!     r.static_path_cached("/index.html", Path::new("examples/static/index.html"), ChangeDetection::FileInfoChange, EvictionPolicy::Never);
+//!     r.static_path_cached("/style", Path::new("examples/static/style"), ChangeDetection::FileInfoChange, EvictionPolicy::Never);
+//! 
+//!     let s = Server::new(addr, r);
+//!     s.start_http();
+//! } 
+//! ```
+//! 
+//! ### Testing
+//! 
+//! ```
+//! extern crate rest_in_rust;
+//! extern crate http;
+//! 
+//! use std::str::FromStr;
+//! use rest_in_rust::*;
+//! use http::request::Builder as RequestBuilder;
+//! use http::Uri;
+//! 
+//! fn hello_world(req: &mut Request) -> Result<Response, HttpError> {
+//!     Ok(req.param("world").unwrap_or("sauerland").into())
+//! }
+//! fn main() {
+//!     let addr = "127.0.0.1:8091".parse().unwrap();
+//! 
+//!     let mut r = Router::new();
+//!     r.get("/hello/:world", hello_world);
+//! 
+//!     let s = Server::new(addr, r);
+//!     let tester = s.start_testing();
+//! 
+//!     let request = RequestBuilder::new().uri(Uri::from_str("/hello/huhu").unwrap()).body(Body::empty()).unwrap();
+//!     let response = tester.handle(request);
+//!     let answer_string = response.body().to_string().unwrap();
+//! 
+//!     assert_eq!(200, response.status().as_u16());
+//!     assert_eq!("huhu", answer_string);
+//! }
+//! ```
 //! 
 //! 
-//! ## Secrutiy
+//! ## Security
 //! 
 //! Not much about security in this crate,
 //! I would not recommend it for production use as standalone,
