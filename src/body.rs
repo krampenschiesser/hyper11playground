@@ -11,7 +11,7 @@ use error::HttpError;
 use std::fmt::{Formatter, Result as FmtResult, Debug};
 
 ///Body used by rest in rust.
-///basically a placeholder for Option<Vec<u8>>
+///basically a placeholder for ```Option<Vec<u8>>```
 pub struct Body(pub Option<Vec<u8>>);
 
 impl Debug for Body {
@@ -31,30 +31,73 @@ impl Debug for Body {
 }
 
 impl Body {
-    ///Shortcut for creating an empty body
+    /// Shortcut for creating an empty body
+    /// 
+    /// ```
+    /// # use rest_in_rust::*;
+    /// # #[allow(dead_code)]
+    /// fn empty(_: &mut Request) -> Result<Response, HttpError> {
+    ///     Ok(Body::empty().into())
+    /// }
+    /// ```
     pub fn empty() -> Self {
         ().into()
     }
     
     ///converts any serde serializeable object into a string and creates a corresponding body from it
-    pub fn fom_serde<T: ::serde::Serialize>(value: T) -> Result<Self, HttpError> {
+    /// 
+    /// ```
+    /// extern crate rest_in_rust;
+    /// #[macro_use] extern crate serde_derive;
+    /// use rest_in_rust::*;
+    /// 
+    /// #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+    /// struct MyStruct {
+    ///     text: String,
+    /// }
+    /// # #[allow(dead_code)]
+    /// fn empty(_: &mut Request) -> Result<Response, HttpError> {
+    ///     let my = MyStruct { text: "hello".into() };
+    ///     Ok(Body::from_serde(my)?.into())
+    /// }
+    /// # fn main() {}
+    /// ```
+    pub fn from_serde<T: ::serde::Serialize>(value: T) -> Result<Self, HttpError> {
         use std::convert::TryFrom;
 
         Body::try_from(value)
     }
-
+    /// get mutable reference to inner ```Option<Vec<u8>>```
     pub fn inner_mut(&mut self) -> &mut Option<Vec<u8>> {
         &mut self.0
     }
+    /// reference to inner ```Option<Vec<u8>>```
     pub fn inner(&self) -> &Option<Vec<u8>> {
         &self.0
     }
-
+    ///moves self to ```Option<Vec<u8>>```
     pub fn into_inner(self) -> Option<Vec<u8>> {
         self.0
     }
-
     ///Converts a string body to any serde deserializable body
+    /// 
+    /// ```
+    /// extern crate rest_in_rust;
+    /// #[macro_use] extern crate serde_derive;
+    /// use rest_in_rust::*;
+    /// 
+    /// #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+    /// struct MyStruct {
+    ///     text: String,
+    /// }
+    /// # #[allow(dead_code)]
+    /// fn post_json(req: &mut Request) -> Result<Response, HttpError> {
+    ///     let obj: MyStruct = req.body().to_json()?;
+    /// 
+    ///     Ok(format!("{:?}", obj).into())
+    /// } 
+    /// # fn main() {}
+    /// ```
     pub fn to_json<T>(&self) -> Result<T, HttpError>
         where T: ::serde::de::DeserializeOwned {
         use serde_json::from_str;

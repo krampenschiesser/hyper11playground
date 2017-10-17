@@ -30,11 +30,23 @@ pub struct Response {
 
 impl Response {
     /// creates a new response from a given http::Response<Body>
-    /// creates a new response from a given http::Response<Body>
     pub fn from_http(inner: HttpResponse<Body>) -> Self {
         Response { inner }
     }
     /// new ResponseBuilder struct
+    /// 
+    /// ```
+    /// extern crate http;
+    /// extern crate rest_in_rust;
+    /// 
+    /// use rest_in_rust::*;
+    /// use http::StatusCode;
+    /// # #[allow(dead_code)]
+    /// fn hello_world(_: &mut Request) -> Result<Response, HttpError> {
+    ///     Response::builder().status(StatusCode::NOT_MODIFIED).body(Body::empty()).build()
+    /// }
+    /// # fn main() {}
+    /// ```
     pub fn builder() -> ResponseBuilder {
         ResponseBuilder::default()
     }
@@ -184,6 +196,14 @@ impl From<::http::StatusCode> for Response {
         builder.status(status);
         let inner = builder.body(Body(None)).unwrap();
 
+        Response { inner }
+    }
+}
+impl From<::body::Body> for Response {
+    fn from(body: ::body::Body) -> Self {
+        let mut builder = HttpResponse::builder();
+        builder.status(StatusCode::OK);
+        let inner = builder.body(body).unwrap();
         Response { inner }
     }
 }

@@ -179,7 +179,7 @@ fn create_response(data: Vec<u8>, mime: &Option<Mime>, checksum: &[u8], etag: Op
 
     if let Some(etag) = etag {
         if checksum_string == etag {
-            return Ok(Response::builder().status(::http::StatusCode::NOT_MODIFIED).body(::body::Body::empty()).build()?)
+            return Response::builder().status(::http::StatusCode::NOT_MODIFIED).body(::body::Body::empty()).build()
         }
     }
 

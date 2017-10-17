@@ -15,7 +15,7 @@ use ::error::HttpError;
 /// Helper trait that you can implement for your objects that are being parsed from a request
 /// Eg. parsing queryparams to a serch struct
 /// 
-///```ignore
+///```
 /// #[macro_use] extern crate serde_derive;
 /// extern crate rest_in_rust;
 /// 
@@ -30,6 +30,7 @@ use ::error::HttpError;
 ///         req.body().to_json()
 ///     }
 /// }
+/// # fn main() {}
 ///```
 pub trait FromRequest: Sized {
     /// Creates a new Self from the request, or returns an error 
