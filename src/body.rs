@@ -9,9 +9,9 @@
 
 //! contains the body type, a wrapper around ```Option<Vec<u8>>```
 
-use std::ops::Deref;
 use error::HttpError;
-use std::fmt::{Formatter, Result as FmtResult, Debug};
+use std::fmt::{Debug, Formatter, Result as FmtResult};
+use std::ops::Deref;
 
 
 ///Body used by rest in rust.
@@ -47,7 +47,7 @@ impl Body {
     pub fn empty() -> Self {
         ().into()
     }
-    
+
     ///converts any serde serializeable object into a string and creates a corresponding body from it
     /// 
     /// ```
@@ -67,8 +67,6 @@ impl Body {
     /// # fn main() {}
     /// ```
     pub fn from_serde<T: ::serde::Serialize>(value: T) -> Result<Self, HttpError> {
-        use std::convert::TryFrom;
-
         Body::try_from(value)
     }
     /// get mutable reference to inner ```Option<Vec<u8>>```
@@ -139,6 +137,12 @@ impl Body {
         let str = ::std::str::from_utf8(vec.as_slice())?;
         Ok(str.into())
     }
+
+    pub fn try_from<T>(value: T) -> Result<Self, HttpError>
+        where T: ::serde::Serialize {
+        let string = ::serde_json::to_string(&value).map_err(|e| HttpError::from(e))?;
+        Ok(Body::from(string))
+    }
 }
 
 impl Default for Body {
@@ -187,11 +191,11 @@ impl From<()> for Body {
     }
 }
 
-impl<T: ::serde::Serialize> ::std::convert::TryFrom<T> for Body {
-    type Error = HttpError;
-
-    fn try_from(value: T) -> Result<Self, Self::Error> {
-        let string = ::serde_json::to_string(&value).map_err(|e| HttpError::from(e))?;
-        Ok(Body::from(string))
-    }
-}
+//impl<T: ::serde::Serialize> ::std::convert::TryFrom<T> for Body {
+//    type Error = HttpError;
+//
+//    fn try_from(value: T) -> Result<Self, Self::Error> {
+//        let string = ::serde_json::to_string(&value).map_err(|e| HttpError::from(e))?;
+//        Ok(Body::from(string))
+//    }
+//}
